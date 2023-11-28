@@ -55,7 +55,8 @@ class RandomCypherGenerator_subqueries():
         self.node_properties = node_properties
         self.connectivity_matrix = connectivity_matrix
         self.property_types_dict = property_types_dict
-        pass
+        # print(f"INIT:{node_labels}, edge_labels{edge_labels},connectivity_matrix{connectivity_matrix},property_types_dict{property_types_dict},")
+        
 
     # call before each run of test
     def init(self):
@@ -394,12 +395,24 @@ class RandomCypherGenerator_subqueries():
         
         pattern = "WHERE {}"
         test_possibilities = []
+        self.number_nested_predicates = randint(0,4)
+        if self.number_nested_predicates > 0:
+            pattern = "WHERE EXISTS {}"
+            # print("DOING NESTED PREDICATES")
+            # print("-"*200)
+            nested_generator = RandomCypherGenerator_subqueries_nested(node_labels=self.node_labels,edge_labels=self.edge_labels,node_properties=self.node_properties,
+                                                                       connectivity_matrix=self.connectivity_matrix, property_types_dict=self.property_types_dict, recursion_level=self.number_nested_predicates)
+            
+            predicate = nested_generator.predicate_generator_recursiv( iterations_left=self.number_nested_predicates)
+            self._predicate = pattern.format(predicate)
+            return
+
         
         # should_test_propertyQ = self.random_choice(0.5) # For later, when 
         should_test_propertyQ = True
         if should_test_propertyQ:
             # First, we need to get a property to test (choose left side of predicate)
-            print("SYMBOLS:",self.symbols)
+            # print("SYMBOLS:",self.symbols)
             item_to_test = choice(self.symbols) if len(self.symbols)>0 else ""
             item_to_test_label = self.name_label_dict[item_to_test] if item_to_test!="" and item_to_test in  self.name_label_dict else ""
 
@@ -408,7 +421,7 @@ class RandomCypherGenerator_subqueries():
             property_type = self.property_types_dict[property_to_test] if property_to_test!="" else None
 
             # Second, we need to get an operator based on the property type
-            print(f"ITEM TO TEST:{item_to_test}")
+            # print(f"ITEM TO TEST:{item_to_test}")
             operator, right_type = self.get_operator(property_type=property_type,left_side=item_to_test) if property_type!=None else ("",None)
 
             # Third, we need to get a value to test (choose right side of predicate)
@@ -457,9 +470,118 @@ class RandomCypherGenerator_subqueries():
             _return = self._return,
             _other = self._other
         )
-        query = re.sub(' +', ' ', query).strip(' ')
-        query = re.sub('[*]+', '*', query).strip(' ')
+        # query = re.sub(' +', ' ', query).strip(' ')
+        # query = re.sub('[*]+', '*', query).strip(' ')
         return query
 
 
 
+
+
+
+
+
+class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries):
+    def __init__(self, node_labels, edge_labels, node_properties, connectivity_matrix, property_types_dict,recursion_level ):
+        config = configparser.ConfigParser()
+        config.read('graphgenie.ini')
+        self.graphdb = config['default']['graphdb']
+        self.language = config['default']['language']
+        self._node_num = int(config['testing_configs']['_node_num'])
+        self.min_node_num = int(config['query_generation_args']['min_node_num'])
+        self.max_node_num = int(config['query_generation_args']['max_node_num'])
+        self.variable_pathlen_rate = float(config['query_generation_args']['variable_pathlen_rate'])
+        self.node_symbol_rate = float(config['query_generation_args']['node_symbol_rate'])
+        self.edge_symbol_rate = float(config['query_generation_args']['edge_symbol_rate'])
+        self.node_label_rate = float(config['query_generation_args']['node_label_rate'])
+        self.edge_label_rate = float(config['query_generation_args']['edge_label_rate'])
+        self.multi_node_label_rate = float(config['query_generation_args']['multi_node_label_rate'])
+        self.multi_edge_label_rate = float(config['query_generation_args']['multi_edge_label_rate'])
+        self.cyclic_rate = float(config['query_generation_args']['cyclic_rate'])
+        self.random_symbol_len = int(config['query_generation_args']['random_symbol_len'])
+        self.cyclic_symbol = config['query_generation_args']['cyclic_symbol']
+        self.multi_node_labels = int(config['query_generation_args']['multi_node_labels'])
+        self.multi_edge_labels = int(config['query_generation_args']['multi_edge_labels'])
+        self.node_labels = node_labels
+        self.edge_labels = edge_labels
+        self.node_properties = node_properties
+        self.connectivity_matrix = connectivity_matrix
+        self.property_types_dict = property_types_dict
+        # print(f"INIT:{node_labels}, edge_labels{edge_labels},connectivity_matrix{connectivity_matrix},property_types_dict{property_types_dict},")
+        self.recursion_level = recursion_level
+    
+    
+    
+
+    # TODO: add more predicate
+    def predicate_generator(self):
+        
+        pattern = "WHERE {}"
+        test_possibilities = []
+
+        # should_test_propertyQ = self.random_choice(0.5) # For later, when 
+        should_test_propertyQ = True
+        if should_test_propertyQ:
+            # First, we need to get a property to test (choose left side of predicate)
+            # print("SYMBOLS:",self.symbols)
+            item_to_test = choice(self.symbols) if len(self.symbols)>0 else ""
+            item_to_test_label = self.name_label_dict[item_to_test] if item_to_test!="" and item_to_test in  self.name_label_dict else ""
+
+            property_to_test = choice(self.node_properties[item_to_test_label]) if item_to_test_label!="" else ""
+            self.property_to_test = property_to_test
+            property_type = self.property_types_dict[property_to_test] if property_to_test!="" else None
+
+            # Second, we need to get an operator based on the property type
+            # print(f"ITEM TO TEST:{item_to_test}")
+            operator, right_type = self.get_operator(property_type=property_type,left_side=item_to_test) if property_type!=None else ("",None)
+
+            # Third, we need to get a value to test (choose right side of predicate)
+
+            predicate = "{}".format(operator) if len(operator)>0 else "True"
+            
+        else:
+            predicate = "{} IS NOT NULL AND True".format(choice(self.node_symbols)) if len(self.node_symbols)>0 else "True"
+        self._predicate = pattern.format(predicate)
+               
+    def predicate_generator_recursiv(self, iterations_left:int):
+        self.init_query()
+        self.match_generator()
+        self.path_generator()
+        
+        self.return_generator()
+        self.other_generator()
+        match = self._match
+        path = self._path
+        predicate = self._predicate
+        ret = self._return
+        other = self._other
+        # print("INSIDE:",match,path,predicate,ret,other,iterations_left)
+        if iterations_left <= 0: 
+            sub_query = "{{ {_path} {_predicate} }}"
+            self.predicate_generator()
+            predicate = self._predicate
+            
+        elif iterations_left > 0:
+            sub_query = "{{ {_match} {_path} WHERE EXISTS {_predicate} }}"
+            predicate = self.predicate_generator_recursiv(iterations_left-1)
+        
+        query = sub_query.format(
+            _match = match,
+            _path = path,
+            _predicate = predicate
+            # _return = ret,
+            # _other = other
+        )
+        # print("QUERY INSIDE NEsted =",query)
+        
+        # query = re.sub(' +', ' ', query).strip(' ')
+        # query = re.sub('[*]+', '*', query).strip(' ')
+        
+        return query
+        
+        
+        
+        
+        
+        
+        

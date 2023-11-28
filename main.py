@@ -115,7 +115,7 @@ class Testing:
         testing_dbhits = self.execute_ret_dbhits(version, testing_query)
 
     # function for multi-threading
-    # Note: db may have sync issue => result inconsistency
+    # Note: db may have sync issue => result inconsistency 
     def eq_testing(self, base_result, base_time, base_query, eq_query):
         eq_query_result, eq_query_time = self.execute_ret_result_time(eq_query, log_str="[Equivalent]")
         if base_result!=None or eq_query_result!=None:
@@ -228,78 +228,6 @@ class Neo4jTesting(Testing):
         query_time = query_execute.consume().result_available_after + query_execute.consume().result_consumed_after
         return query_result, query_time
 
-class RedisGraphTesting(Testing):
-    # Redis Config
-    graph = "db"
-    def __init__(self):
-        self.init_testing_configs()
-        self.start_time = time.time()
-        if os.path.exists(self.logpath):
-            self.init_log()
-        self.log("***** Testing RedisGraph *****\n")
-        self.log("\tmulti_threading={}\n".format(self.multi_threading))
-        self.log("\tvariant={}\n".format(self.variant))
-        r = redis.Redis(host=self.ip, port=self.port)
-        self.driver = Graph(self.graph, r)
-
-    def execute_ret_result_time(self, query, log_str):
-        driver = self.driver
-        query_result = None
-        query_time = -1
-        try:
-            result = self.driver.query(query)
-            first_result = result.result_set
-            if len(first_result)==0:
-                query_result = None
-            else:
-                query_result = first_result[0][0]
-            query_time = result.run_time_ms
-        except Exception as e:
-            self.except_log('\nQuery:{}\nInfo:{}\n'.format(query, str(e)))
-            return None, -1
-        self.log("{} Query=\"{}\"\n\tQuery Result={}\n\tQuery Time={}\n".format(log_str, query, query_result, query_time))
-        self.executed_query_num += 1
-        return query_result, query_time
-
-class AgensGraphTesting(Testing):
-    def __init__(self):
-        self.init_testing_configs()
-        self.start_time = time.time()
-        if os.path.exists(self.logpath):
-            self.init_log()
-        self.log("***** Testing AgensGraph *****")
-        self.connstr = "host={} port={} user={} password={}".format(
-            self.ip,
-            self.port,
-            self.username,
-            self.password
-        )
-        self.init_testing_configs()
-        self.conn = psycopg2.connect(self.connstr)
-        self.cur = self.conn.cursor()
-        self.cur.execute("SET graph_path = t")
-
-    def execute_ret_result_time(self, query, log_str):
-        query_result = None
-        query_time = -1
-        query = query.replace('--', '-[]-')
-        try:
-            start_time = time.time()
-            self.cur.execute(query)
-            query_result = self.cur.fetchone()
-            if query_result and len(query_result)>0:
-                query_result = query_result[0]
-            query_time = (time.time()-start_time)*1000
-            self.cur.fetchall()
-        except Exception as e:
-            self.conn = psycopg2.connect(self.connstr)
-            self.cur = self.conn.cursor()
-            self.cur.execute("SET graph_path = t")
-            self.except_log('\nQuery:{}\nInfo:{}\n'.format(query, str(e)))
-            return None, -1
-        self.executed_query_num += 1
-        self.log("{} Query=\"{}\"\n\tQuery Result={}\n\tQuery Time={}\n".format(log_str, query, query_result, query_time))
-        return query_result, query_time
 
 if __name__ == "__main__":
     print("=====GraphGenie=====")
@@ -322,18 +250,22 @@ if __name__ == "__main__":
     
 
     random_cypher_generator = RandomCypherGenerator_subqueries(node_labels, edge_labels, node_properties, connectivity_matrix,properties_types)
-    # cypher_query_mutator = CypherQueryMutator(node_labels, edge_labels, node_properties, connectivity_matrix)
-    # # test.testing(random_cypher_generator, cypher_query_mutator)
-    random_cypher_generator.init()
+    cypher_query_mutator = CypherQueryMutator(node_labels, edge_labels, node_properties, connectivity_matrix)
+    # test.testing(random_cypher_generator, cypher_query_mutator)
+    # random_cypher_generator.init()
     for i in range(10):
+        print("\n","="*100)
         base_query = random_cypher_generator.random_query_generator()
+        print()
         print(base_query)
+        print()
         print(random_cypher_generator.symbols)
         print(random_cypher_generator.node_symbols)
         print(random_cypher_generator.name_label_dict)
         print(random_cypher_generator.node_properties)
         print(f"property_to_test:{random_cypher_generator.property_to_test}")
-        # input()
+        print(f"number of nested: {random_cypher_generator.number_nested_predicates}")
+        input()
     
     # # for i in range(10):
     # #     equivalent_queries, equivalent_rules_eval = cypher_query_mutator.generate_equivalent_queries(base_query)
