@@ -4,6 +4,7 @@ import os
 import time
 
 from neo4j import GraphDatabase
+import numpy as np
 
 # currently we only support neo4j
 
@@ -77,7 +78,8 @@ class Neo4jSchemaScanner(SchemaScanner):
         self.scan_properties()
         self.scan_keys_types()
         self.scan_connectivity()
-        return self.node_labels, self.edge_labels, self.node_properties, self.connectivity_matrix, self.properties_types
+        self.scan_connectivity_matrix()
+        return self.node_labels, self.edge_labels, self.node_properties, self.connectivity_matrix, self.properties_types, self.connectivity_nparray_per_edge_label_dict
 
     def scan_properties(self):
         get_properties_query = """
@@ -134,6 +136,42 @@ class Neo4jSchemaScanner(SchemaScanner):
                     properties_types.update(query_result[0]) 
         print(f"properties_types:{properties_types}")
         self.properties_types = properties_types
+        
+    def scan_connectivity_matrix(self):
+        print("CALCULATING REAL CONNECTIVITY")
+        # We want to scan for each label the connection matrix.
+        
+        # Set an ID to each node:
+        set_id_query = "match (n) set n.id = id(n)"
+        self.execute_query(set_id_query)
+        # Gather list of all ids
+        get_all_ids_query = "match (n) Return n.id order BY n.id desc"
+        all_ids = self.execute_query(get_all_ids_query)
+        print("all_ids",all_ids[0:5])
+        largest_id = all_ids[0]["n.id"]
+        # print("largest_id",largest_id,type(largest_id))
+        # input()
+        # Init matrices:
+        self.connectivity_nparray_per_edge_label_dict ={
+            edge_label:np.zeros((largest_id+1,largest_id+1),dtype=np.uint32) for edge_label in self.edge_labels # +1 for testing with updates later. Dtype of uint32 for 0-4294967295
+        }
+        # fill matrices
+        for edge_label in self.edge_labels:
+            query= f"match (n)-[r:{edge_label}]->(n2) Return n.id,n2.id order BY n.id"
+            result = self.execute_query(query=query)
+            # print("RESULT:",result[0:5])
+            matrix = self.connectivity_nparray_per_edge_label_dict[edge_label]
+            for line in result:
+                # print("LINE:",line)
+                # input()
+                nid,n2id = int(line["n.id"]), int(line["n2.id"])
+                matrix[nid,n2id] +=1
+            
+                
+                
+                
+            
+        
 
     @staticmethod
     def _new_execute(tx, query):

@@ -246,13 +246,14 @@ if __name__ == "__main__":
 
 
     schema_scanner = Neo4jSchemaScanner(ip, port, username, password)
-    node_labels, edge_labels, node_properties, connectivity_matrix, properties_types = schema_scanner.scan()
+    node_labels, edge_labels, node_properties, connectivity_matrix, properties_types,connectivity_nparray_per_edge_label_dict = schema_scanner.scan()
     
-
+    print("CONNECTIVITY MATRIX:",connectivity_matrix)
     random_cypher_generator = RandomCypherGenerator_subqueries(node_labels, edge_labels, node_properties, connectivity_matrix,properties_types)
     cypher_query_mutator = CypherQueryMutator(node_labels, edge_labels, node_properties, connectivity_matrix)
     # test.testing(random_cypher_generator, cypher_query_mutator)
     # random_cypher_generator.init()
+    
     for i in range(10):
         print("\n","="*100)
         base_query = random_cypher_generator.random_query_generator()

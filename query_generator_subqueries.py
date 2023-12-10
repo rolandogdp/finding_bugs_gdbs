@@ -55,7 +55,7 @@ class RandomCypherGenerator_subqueries():
         self.node_properties = node_properties
         self.connectivity_matrix = connectivity_matrix
         self.property_types_dict = property_types_dict
-        # print(f"INIT:{node_labels}, edge_labels{edge_labels},connectivity_matrix{connectivity_matrix},property_types_dict{property_types_dict},")
+        print(f"INIT:{node_labels}, edge_labels{edge_labels},connectivity_matrix{connectivity_matrix},property_types_dict{property_types_dict},")
         
 
     # call before each run of test
@@ -576,7 +576,7 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries):
         
         # query = re.sub(' +', ' ', query).strip(' ')
         # query = re.sub('[*]+', '*', query).strip(' ')
-        
+
         return query
         
         
