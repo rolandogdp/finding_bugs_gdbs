@@ -3,10 +3,11 @@ import string
 import re
 import configparser
 from random import randint, choice,uniform
+import graph_tool.all as gt
 
 # this is a lightweight cypher query generator
 
-class RandomCypherGenerator_subqueries():
+class RandomCypherGenerator_subqueries_with_graph():
     # in GraphGenie, the high-level idea is to mutated the graph query pattern
     # that is, the _path, rather than _predicate mutated by many existing works
     cypher_query_pattern = "{_match} {_path} {_predicate} {_return} {_other}"
@@ -56,6 +57,8 @@ class RandomCypherGenerator_subqueries():
         self.connectivity_matrix = connectivity_matrix
         self.property_types_dict = property_types_dict
         self.graph_full = graph_full
+        # We create a view with only vertices with at least one edge.
+        self.graph_full_view = gt.GraphView(self.graph_full, vfilt=lambda v: v.out_degree() > 0)
         print(f"INIT:{node_labels}, edge_labels{edge_labels},connectivity_matrix{connectivity_matrix},property_types_dict{property_types_dict},")
         
 
@@ -217,37 +220,7 @@ class RandomCypherGenerator_subqueries():
         self._path = path
         self.path_parser()
     
-    # def sub_path_generator(self):
-    #     nodes_num = self._node_num
-    #     path = ""
-    #     prev_node_label = ""
-    #     prev_node_direction = "-"
-    #     # given the number of nodes, we generate each node unit
-    #     # it takes previous node label and edge information and checks the connectivity
-    #     # connectivity: before testing, we have parsed the target dataset to pre-analyze
-    #     # the connectivity among different types of nodes
-    #     # note: if supporting update/insert clauses later, we need incremental updates to
-    #     # the connectivity matrix
-    #     for i in range(nodes_num):
-    #         new_path_unit = self.random_path_unit(prev_node_label, prev_node_direction)
-    #         # update the previous node label and edge direction after generation
-    #         prev_node_label = self.parse_path_unit_node_label(new_path_unit)
-    #         prev_node_direction = self.cypher_get_unit_direction(new_path_unit)
-    #         if self.random_choice(self.variable_pathlen_rate):
-    #             variable_length_expressions = ["*..1]", "*0..1]", "*0..0]", "*1..1]"]
-    #             new_path_unit = new_path_unit.replace(']', choice(variable_length_expressions))
-    #         path += new_path_unit
-    #     # to strip the tail edge
-    #     path = ")".join(path.split(")")[:-1])+")"
-    #     # to generate cyclic path
-    #     if self.random_choice(self.cyclic_rate):
-    #         cyclic_str = "{cyc_sym}{node_label}".format(
-    #             cyc_sym = self.cyclic_symbol,
-    #             node_label= ":"+choice(self.node_labels) if self.random_choice(self.node_label_rate) else ""
-    #         )
-    #         path = ("({cyc})-{path}-({cyc})".format(cyc=cyclic_str, path="-".join(path.split("-")[1:-1])))
-    #     self._path = path
-    #     self.path_parser()
+
 
     def path_parser(self):
         self.nodes_num = self._path.count('-')/2 + 1
@@ -477,12 +450,80 @@ class RandomCypherGenerator_subqueries():
 
 
 
+    def get_random_path_in_graph(self):
+        starting_vertice = choice(self.graph_full_view.get_vertices())
+        visitorResult = VisitorResult()
+        visitor = VisitorExample(self.graph_full.vertex_properties["properties"],visitorResult)
+        gt.dfs_search(self.graph_full, starting_vertice,visitor )
+        
+        
+        pass
+        
 
 
+class VisitorResult():
+    def __init__(self) -> None:
+        self.final_path = []
+    
+class VisitorExample(gt.DFSVisitor):
+
+    def __init__(self,properties,visitorResult:VisitorResult,path_min=1,path_max=5):
+        self.properties = properties
+        self.finished_paths = []
+        self.path_max = path_max
+        self.path_min = path_min
+        self.visitorResult = visitorResult
+        
+    def start_vertex(self, u):
+        
+        number_of_childs = u.out_degree()
+        # print("Starting with:",u, " with ",number_of_childs," childs")
+        self.current_path = [[u] for _ in range(number_of_childs)]
+        # print("Initial Current path:",self.current_path)
+        
+        
+    # def discover_vertex(self, u):
+    #     self.current_path.append(u)
+    
+    def examine_edge(self, e):
+        # print("examine_edge",e.source(),e.target())
+        # print("current path:",self.current_path)
+        for path in self.current_path[::-1]:
+            print(e.source(),path)
+            if e.source() == path[-1]:
+                # print("YAY")
+                path.append(e.target())
+                number_of_childs = e.target().out_degree()
+                for _ in range(number_of_childs-1):
+                    self.current_path.append(path.copy())
+                    if len(path) >= self.path_max:
+                        self.visitorResult.final_path = path
+                        raise gt.StopSearch()
+                
+                break
+        else:
+            print("NOOO")
+            print(e.source()), print(path[-1])
+
+    def finish_vertex(self, u):
+        # print("finish vertex")
+
+        for path in self.current_path[::-1]:
+            # print(type(u))
+            # print(type(path[-1]))
+            if u == path[-1]:
+                self.finished_paths.append(path)
+                self.visitorResult.final_path = self.finished_paths
+                
+                break
+                
+        # print("FINAL PATH:",[self.properties[u]["id"] for u in self.current_path[-1]])
+        # print(len(self.current_path))
+        # print("Finished paths:",self.finished_paths)
+        # print("==")
 
 
-
-class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries):
+class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_with_graph):
     def __init__(self, node_labels, edge_labels, node_properties, connectivity_matrix, property_types_dict,recursion_level ):
         config = configparser.ConfigParser()
         config.read('graphgenie.ini')
@@ -579,10 +620,3 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries):
         # query = re.sub('[*]+', '*', query).strip(' ')
 
         return query
-        
-        
-        
-        
-        
-        
-        

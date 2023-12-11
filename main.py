@@ -9,7 +9,9 @@ import datetime
 from schema_scanner import *
 from query_generator import *
 from query_mutator import *
-from query_generator_subqueries import *
+from query_generator_subqueries_with_graph import *
+
+import graph_tool.all as gt
 
 class Testing:
     def init_testing_configs(self):
@@ -243,13 +245,15 @@ if __name__ == "__main__":
     
     from neo4j import GraphDatabase
     test = Neo4jTesting()
+    graph_full = gt.Graph(directed=True)
+
 
 
     schema_scanner = Neo4jSchemaScanner(ip, port, username, password)
-    node_labels, edge_labels, node_properties, connectivity_matrix, properties_types,connectivity_nparray_per_edge_label_dict = schema_scanner.scan()
+    node_labels, edge_labels, node_properties, connectivity_matrix, properties_types,graph_full = schema_scanner.scan(graph_full)
     
     print("CONNECTIVITY MATRIX:",connectivity_matrix)
-    random_cypher_generator = RandomCypherGenerator_subqueries(node_labels, edge_labels, node_properties, connectivity_matrix,properties_types)
+    random_cypher_generator = RandomCypherGenerator_subqueries_with_graph(node_labels, edge_labels, node_properties, connectivity_matrix,properties_types,graph_full)
     cypher_query_mutator = CypherQueryMutator(node_labels, edge_labels, node_properties, connectivity_matrix)
     # test.testing(random_cypher_generator, cypher_query_mutator)
     # random_cypher_generator.init()
