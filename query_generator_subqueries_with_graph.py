@@ -2,7 +2,7 @@
 import string
 import re
 import configparser
-from random import randint, choice,uniform
+from random import randint, choice,uniform,shuffle
 import graph_tool.all as gt
 
 # this is a lightweight cypher query generator
@@ -375,7 +375,7 @@ class RandomCypherGenerator_subqueries_with_graph():
             # print("DOING NESTED PREDICATES")
             # print("-"*200)
             nested_generator = RandomCypherGenerator_subqueries_nested(node_labels=self.node_labels,edge_labels=self.edge_labels,node_properties=self.node_properties,
-                                                                       connectivity_matrix=self.connectivity_matrix, property_types_dict=self.property_types_dict, recursion_level=self.number_nested_predicates)
+                                                                       connectivity_matrix=self.connectivity_matrix, property_types_dict=self.property_types_dict, recursion_level=self.number_nested_predicates,graph_full=self.graph_full,graph_full_view=self.graph_full_view)
             
             predicate = nested_generator.predicate_generator_recursiv( iterations_left=self.number_nested_predicates)
             self._predicate = pattern.format(predicate)
@@ -430,10 +430,67 @@ class RandomCypherGenerator_subqueries_with_graph():
             limit = choice(limit_keywords)
         )
 
+
+    def get_random_path_in_graph(self):
+        # TODO: optimize selection of starting vertice using additional graph metrics to guarantee finding a long enough path.
+        found = False
+        i=0
+        choosen_path = []
+        while not found:
+            starting_vertice = choice(self.graph_full_view.get_vertices())
+            visitorResult = VisitorResult()
+            visitor = VisitorExample(self.graph_full.vertex_properties["properties"],visitorResult,path_min=1,path_max=self.max_node_num)
+            gt.dfs_search(self.graph_full, starting_vertice,visitor )
+            for path in visitorResult.final_path[::-1]:
+                if len(path) >= self.min_node_num:
+                    found = True
+                    choosen_path = path
+                    break
+
+            if i > 1000:
+                print("COULD NOT FIND A PATH")
+                # shuffle(visitorResult.final_path.sort(key=len,reverse=True)) # We can add additional randomness here
+                visitorResult.final_path.sort(key=len,reverse=True)
+                choosen_path = visitorResult.final_path[0]
+                found = True                
+            i+=1
+        
+        return choosen_path
+        
+    def path_generator_graph(self):
+        graph_path = self.get_random_path_in_graph()
+        # print("PATH:",path)
+        path = ""
+        path_units= "({node_sym})-[{edge_sym}]->"
+        for i in range(len(graph_path)-1):
+            node = graph_path[i]
+            next_node = graph_path[i+1]
+
+            random_node_sym1 = self.random_symbol() if self.random_choice(self.node_symbol_rate) else ""
+            random_node_label1 = choice(self.graph_full.vertex_properties["labels"][node]) if self.random_choice(self.multi_node_label_rate) else ""
+            random_node_sym = "{}:{}".format(random_node_sym1,random_node_label1 )
+                
+
+            random_edge_label = choice(self.graph_full.edge_properties["properties"][self.graph_full.edge(node,next_node)]) if self.random_choice(self.multi_edge_label_rate) else ""
+            random_edge_sym = "{}".format(random_edge_label )
+
+            path += path_units.format(node_sym=random_node_sym,edge_sym=random_edge_sym)
+        
+        random_node_sym1 = self.random_symbol() if self.random_choice(self.node_symbol_rate) else ""
+        random_node_label1 = choice(self.graph_full.vertex_properties["labels"][next_node]) if self.random_choice(self.multi_node_label_rate) else ""
+        random_node_sym = "{}:{}".format(random_node_sym1,random_node_label1 )
+        
+        path_final = "({node_sym})".format(node_sym=random_node_sym)
+        path = path + path_final
+        self._path = path
+        print("\n\n\n\n HERE PATH:",path)
+        # self.path_parser() # TODO: Unsure..?
+
+
     def random_query_generator(self):
         self.init_query()
         self.match_generator()
-        self.path_generator()
+        self.path_generator_graph()
         self.predicate_generator()
         self.return_generator()
         self.other_generator()
@@ -450,14 +507,9 @@ class RandomCypherGenerator_subqueries_with_graph():
 
 
 
-    def get_random_path_in_graph(self):
-        starting_vertice = choice(self.graph_full_view.get_vertices())
-        visitorResult = VisitorResult()
-        visitor = VisitorExample(self.graph_full.vertex_properties["properties"],visitorResult)
-        gt.dfs_search(self.graph_full, starting_vertice,visitor )
+
+
         
-        
-        pass
         
 
 
@@ -524,7 +576,7 @@ class VisitorExample(gt.DFSVisitor):
 
 
 class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_with_graph):
-    def __init__(self, node_labels, edge_labels, node_properties, connectivity_matrix, property_types_dict,recursion_level ):
+    def __init__(self, node_labels, edge_labels, node_properties, connectivity_matrix, property_types_dict,recursion_level,graph_full,graph_full_view ):
         config = configparser.ConfigParser()
         config.read('graphgenie.ini')
         self.graphdb = config['default']['graphdb']
@@ -551,6 +603,10 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
         self.property_types_dict = property_types_dict
         # print(f"INIT:{node_labels}, edge_labels{edge_labels},connectivity_matrix{connectivity_matrix},property_types_dict{property_types_dict},")
         self.recursion_level = recursion_level
+
+        self.graph_full = graph_full
+        # We create a view with only vertices with at least one edge.
+        self.graph_full_view = graph_full_view
     
     
     
@@ -588,7 +644,7 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
     def predicate_generator_recursiv(self, iterations_left:int):
         self.init_query()
         self.match_generator()
-        self.path_generator()
+        self.path_generator_graph()
         
         self.return_generator()
         self.other_generator()

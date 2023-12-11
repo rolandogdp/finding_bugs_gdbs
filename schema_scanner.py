@@ -207,7 +207,7 @@ class Neo4jSchemaScanner(SchemaScanner):
             nid = int(label["n.id"])
             vertice = self.graph_full.vertex(nid)
             self.graph_full.vertex_properties["labels"][vertice]= label["Labels(n)"]
-            
+
         # Adding edges
         print("Querying vertices and edges (Can take a while))") 
         query = "match (n)-[r]->(n2) Return n,r,n2 order BY n.id"
@@ -223,7 +223,7 @@ class Neo4jSchemaScanner(SchemaScanner):
             # https://graph-tool.skewed.de/static/doc/quickstart.html#sec-property-maps
             self.graph_full.vertex_properties["properties"][vertice1]= relation["n"]
             self.graph_full.vertex_properties["properties"][vertice2]= relation["n2"]
-            self.graph_full.edge_properties["properties"][edge] = relation["r"]
+            self.graph_full.edge_properties["properties"][edge] = relation["r"][1]
 
 
 
