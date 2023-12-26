@@ -207,7 +207,8 @@ class Neo4jTesting(Testing):
                 session.execute_write(self._new_execute, clear_query)
                 query_result, query_time = session.execute_write(self._new_execute, query)
             except Exception as e:
-                self.except_log('\nQuery:{}\nInfo:{}\n'.format(query, str(e)))
+                print('\nQuery:{}\nInfo:{}\n'.format(query, str(e)))
+                # self.except_log('\nQuery:{}\nInfo:{}\n'.format(query, str(e)))
                 return None, -1
             self.executed_allquery += 1
             self.log("No.{} {} Query=\"{}\"\n\tQuery Result={}\n\tQuery Time={}\n".format(self.executed_allquery, log_str, query, query_result, query_time))

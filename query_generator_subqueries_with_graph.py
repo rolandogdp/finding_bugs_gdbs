@@ -70,6 +70,8 @@ class RandomCypherGenerator_subqueries_with_graph():
         self._path_vectors = []
         self._last_vector_length = 0
         self.stuck = 0
+        self.graph_path = []
+        self.labels = []
         self.init_query()
 
     # note: call before each generation
@@ -80,6 +82,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         self._return = ""
         self._condition = ""
         self.symbols = []
+        self.symbolsids = []
         self.node_symbols = []
         self.edge_symbols = []
         self.name_label_dict = {}
@@ -412,7 +415,10 @@ class RandomCypherGenerator_subqueries_with_graph():
         return_keywords = ["RETURN", "RETURN DISTINCT"]
         # TODO: to support count(DISTINCT ), max(), min()
         test_returns = ["count({})"]
-        return_staff = choice(test_returns).format(choice(self.symbols)) if len(self.symbols)>0 else "count(1)"
+        if len(self.symbolsids)>0 and self.random_choice(0.5):
+            return_staff = choice(self.symbolsids)
+        else:
+            return_staff = choice(test_returns).format(choice(self.symbols)) if len(self.symbols)>0 else "count(1)"
         self._return = _return.format(
             return_keyword = choice(return_keywords),
             return_staff = return_staff
@@ -422,8 +428,8 @@ class RandomCypherGenerator_subqueries_with_graph():
     def other_generator(self):
         _other = "{order_by} {skip} {limit}"
         order_by_keywords = ["", "ORDER BY -1+1", "ORDER BY NULL"]
-        skip_keywords = ["", "SKIP 1", "SKIP 0", "SKIP 0", "SKIP 0", "SKIP 0", "SKIP 0", "SKIP 0",]
-        limit_keywords = ["", "LIMIT 0", "LIMIT 1", "LIMIT 1", "LIMIT 2", "LIMIT 3", "LIMIT 5", "LIMIT 1"]
+        skip_keywords = ["", "SKIP 0", "SKIP 0", "SKIP 0", "SKIP 0", "SKIP 0", "SKIP 0", "SKIP 0",]
+        limit_keywords = ["", "LIMIT 1", "LIMIT 2", "LIMIT 3", "LIMIT 4","LIMIT 5"]
         self._other = _other.format(
             order_by = choice(order_by_keywords),
             skip = choice(skip_keywords),
@@ -460,25 +466,35 @@ class RandomCypherGenerator_subqueries_with_graph():
     def path_generator_graph(self):
         graph_path = self.get_random_path_in_graph()
         # print("PATH:",path)
+        
         path = ""
         path_units= "({node_sym})-[{edge_sym}]->"
         for i in range(len(graph_path)-1):
+            
             node = graph_path[i]
             next_node = graph_path[i+1]
-
-            random_node_sym1 = self.random_symbol() if self.random_choice(self.node_symbol_rate) else ""
-            random_node_label1 = choice(self.graph_full.vertex_properties["labels"][node]) if self.random_choice(self.multi_node_label_rate) else ""
-            random_node_sym = "{}:{}".format(random_node_sym1,random_node_label1 )
-                
-
-            random_edge_label = choice(self.graph_full.edge_properties["properties"][self.graph_full.edge(node,next_node)]) if self.random_choice(self.multi_edge_label_rate) else ""
+            # print("ICIIIIII:",self.graph_full.vertex_properties["properties"])
+            random_node_sym1 = "id"+str(self.graph_full.vertex_properties["properties"][node]["id"])# if self.random_choice(self.node_symbol_rate) else ""
+            random_node_label1 = ":"+choice(self.graph_full.vertex_properties["labels"][node]) #if self.random_choice(self.multi_node_label_rate) else ""
+            random_node_sym = "{}{}".format(random_node_sym1,random_node_label1 )
+            edge_label = self.graph_full.edge_properties["properties"][self.graph_full.edge(node,next_node)]    
+            if self.random_choice(self.multi_edge_label_rate):
+                random_edge_label = edge_label
+            else: 
+                random_edge_label = ""
+        
+            if random_node_sym == ":":
+                random_node_sym = ""
+            
             random_edge_sym = "{}".format(random_edge_label )
+            self.symbolsids.append(random_node_sym1)
 
             path += path_units.format(node_sym=random_node_sym,edge_sym=random_edge_sym)
         
-        random_node_sym1 = self.random_symbol() if self.random_choice(self.node_symbol_rate) else ""
-        random_node_label1 = choice(self.graph_full.vertex_properties["labels"][next_node]) if self.random_choice(self.multi_node_label_rate) else ""
-        random_node_sym = "{}:{}".format(random_node_sym1,random_node_label1 )
+        random_node_sym1 = "id"+str(self.graph_full.vertex_properties["properties"][next_node]["id"]) #self.random_symbol() if self.random_choice(self.node_symbol_rate) else ""
+        random_node_label1 = ":"+choice(self.graph_full.vertex_properties["labels"][next_node]) #if self.random_choice(self.multi_node_label_rate) else ""
+        random_node_sym = "{}{}".format(random_node_sym1,random_node_label1 )
+        self.symbolsids.append(random_node_sym1)
         
         path_final = "({node_sym})".format(node_sym=random_node_sym)
         path = path + path_final

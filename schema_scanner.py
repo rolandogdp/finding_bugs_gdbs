@@ -3,7 +3,7 @@
 import os
 import time
 
-from neo4j import GraphDatabase
+from neo4j import GraphDatabase,unit_of_work
 import numpy as np
 
 import graph_tool.all as gt
@@ -48,7 +48,7 @@ class Neo4jSchemaScanner(SchemaScanner):
         url = "bolt://{}:{}".format(self.ip, self.port)
         username = self.username
         password = self.password
-        self.driver = GraphDatabase.driver(url, auth=(username, password))
+        self.driver = GraphDatabase.driver(url, auth=(username, password),connection_timeout=60*10  )
         
     def scan(self, graph_full=None):
         if graph_full is None:
@@ -118,6 +118,7 @@ class Neo4jSchemaScanner(SchemaScanner):
             self.connectivity_matrix.append(matrix_row)
         self.print_connectivity()
 
+    @unit_of_work(timeout=60*1000)
     def execute_query(self, query):
         with self.driver.session() as session:
             query_result = session.execute_write(self._new_execute, query)
@@ -242,6 +243,7 @@ class Neo4jSchemaScanner(SchemaScanner):
         
 
     @staticmethod
+    @unit_of_work(timeout=60*1000)
     def _new_execute(tx, query):
         query_result = -1
         query_execute = tx.run(query)
