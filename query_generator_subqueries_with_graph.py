@@ -371,8 +371,29 @@ class RandomCypherGenerator_subqueries_with_graph():
     def predicate_generator(self):
         
         pattern = "WHERE {}"
+        
+        # should_test_propertyQ = self.random_choice(0.5) # For later, when 
+        should_test_propertyQ = True
+        if should_test_propertyQ:
+            ### New code based on the graph
+            # number_of_test = randint(0,4)
+            id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
+            print("====ICI"*100)
+            print(id_to_test)
+            print(len(self.symbolsids))
+            if id_to_test != "":
+                id_int  = int(id_to_test[2:]) #id1 -> 1
+                node = self.graph_full.vertex(id_int)
+                property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
+                predicate_placeholder = "( {id}.{property} {operator} {value} )"
+                value = self.graph_full.vertex_properties["properties"][node][property_to_test]
+                predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
+            else:predicate = "True"
+        
+        
         test_possibilities = []
         self.number_nested_predicates = randint(0,4)
+        
         if self.number_nested_predicates > 0:
             pattern = "WHERE EXISTS {}"
             # print("DOING NESTED PREDICATES")
@@ -386,24 +407,26 @@ class RandomCypherGenerator_subqueries_with_graph():
 
         
         # should_test_propertyQ = self.random_choice(0.5) # For later, when 
-        should_test_propertyQ = True
-        if should_test_propertyQ:
-            # First, we need to get a property to test (choose left side of predicate)
-            # print("SYMBOLS:",self.symbols)
-            item_to_test = choice(self.symbols) if len(self.symbols)>0 else ""
-            item_to_test_label = self.name_label_dict[item_to_test] if item_to_test!="" and item_to_test in  self.name_label_dict else ""
+        # should_test_propertyQ = True
+        # if should_test_propertyQ:
 
-            property_to_test = choice(self.node_properties[item_to_test_label]) if item_to_test_label!="" else ""
-            self.property_to_test = property_to_test
-            property_type = self.property_types_dict[property_to_test] if property_to_test!="" else None
+            # ### OLD CODE
+            # # First, we need to get a property to test (choose left side of predicate)
+            # # print("SYMBOLS:",self.symbols)
+            # item_to_test = choice(self.symbols) if len(self.symbols)>0 else ""
+            # item_to_test_label = self.name_label_dict[item_to_test] if item_to_test!="" and item_to_test in  self.name_label_dict else ""
 
-            # Second, we need to get an operator based on the property type
-            # print(f"ITEM TO TEST:{item_to_test}")
-            operator, right_type = self.get_operator(property_type=property_type,left_side=item_to_test) if property_type!=None else ("",None)
+            # property_to_test = choice(self.node_properties[item_to_test_label]) if item_to_test_label!="" else ""
+            # self.property_to_test = property_to_test
+            # property_type = self.property_types_dict[property_to_test] if property_to_test!="" else None
 
-            # Third, we need to get a value to test (choose right side of predicate)
+            # # Second, we need to get an operator based on the property type
+            # # print(f"ITEM TO TEST:{item_to_test}")
+            # operator, right_type = self.get_operator(property_type=property_type,left_side=item_to_test) if property_type!=None else ("",None)
 
-            predicate = "{}".format(operator) if len(operator)>0 else "True"
+            # # Third, we need to get a value to test (choose right side of predicate)
+
+            # predicate = "{}".format(operator) if len(operator)>0 else "True"
             
         else:
             predicate = "{} IS NOT NULL AND True".format(choice(self.node_symbols)) if len(self.node_symbols)>0 else "True"
@@ -437,13 +460,14 @@ class RandomCypherGenerator_subqueries_with_graph():
         )
 
 
-    def get_random_path_in_graph(self):
+    def get_random_path_in_graph(self,starting_vertice=None):
         # TODO: optimize selection of starting vertice using additional graph metrics to guarantee finding a long enough path.
         found = False
         i=0
         choosen_path = []
         while not found:
-            starting_vertice = choice(self.graph_full_view.get_vertices())
+            if starting_vertice == None:
+                starting_vertice = choice(self.graph_full_view.get_vertices())
             visitorResult = VisitorResult()
             visitor = VisitorExample(self.graph_full.vertex_properties["properties"],visitorResult,path_min=1,path_max=self.max_node_num)
             gt.dfs_search(self.graph_full, starting_vertice,visitor )
@@ -478,15 +502,16 @@ class RandomCypherGenerator_subqueries_with_graph():
             random_node_label1 = ":"+choice(self.graph_full.vertex_properties["labels"][node]) #if self.random_choice(self.multi_node_label_rate) else ""
             random_node_sym = "{}{}".format(random_node_sym1,random_node_label1 )
             edge_label = self.graph_full.edge_properties["properties"][self.graph_full.edge(node,next_node)]    
-            if self.random_choice(self.multi_edge_label_rate):
-                random_edge_label = edge_label
-            else: 
-                random_edge_label = ""
+            #if self.random_choice(self.multi_edge_label_rate):
+            #     random_edge_label = edge_label
+            # else: 
+            #     random_edge_label = ""
+            random_edge_label = edge_label
         
             if random_node_sym == ":":
                 random_node_sym = ""
             
-            random_edge_sym = "{}".format(random_edge_label )
+            random_edge_sym = ":{}".format(random_edge_label )
             self.symbolsids.append(random_node_sym1)
 
             path += path_units.format(node_sym=random_node_sym,edge_sym=random_edge_sym)
@@ -557,7 +582,7 @@ class VisitorExample(gt.DFSVisitor):
         # print("examine_edge",e.source(),e.target())
         # print("current path:",self.current_path)
         for path in self.current_path[::-1]:
-            print(e.source(),path)
+            # print(e.source(),path)
             if e.source() == path[-1]:
                 # print("YAY")
                 path.append(e.target())

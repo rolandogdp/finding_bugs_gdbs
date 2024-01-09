@@ -8,7 +8,7 @@ import configparser
 import datetime
 from schema_scanner import *
 from query_generator import *
-from query_mutator import *
+from query_mutator_sequential import *
 from query_generator_subqueries_with_graph import *
 
 import graph_tool.all as gt
@@ -224,6 +224,7 @@ class Neo4jTesting(Testing):
         query_time = -1
         query_execute = tx.run(query)
         query_data = query_execute.data()
+        print(f"Query:{query}\n","Queried data:",query_data)
         if len(query_data)==0:
             query_result = None
         else:
@@ -255,7 +256,7 @@ if __name__ == "__main__":
     
     print("CONNECTIVITY MATRIX:",connectivity_matrix)
     random_cypher_generator = RandomCypherGenerator_subqueries_with_graph(node_labels, edge_labels, node_properties, connectivity_matrix,properties_types,graph_full)
-    cypher_query_mutator = CypherQueryMutator(node_labels, edge_labels, node_properties, connectivity_matrix)
+    cypher_query_mutator = CypherQueryMutatorSequential(node_labels, edge_labels, node_properties, connectivity_matrix, graph_full)
     # test.testing(random_cypher_generator, cypher_query_mutator)
     # random_cypher_generator.init()
     
