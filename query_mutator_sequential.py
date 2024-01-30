@@ -120,7 +120,9 @@ class CypherQueryMutatorSequential:
 
             if subquery == "":
                 break
-            if "WHERE EXISTS" in subquery:
+            if "AND EXISTS":
+                subqueries.append(subquery.split("AND EXISTS")[0])
+            elif "WHERE EXISTS" in subquery:
                 subqueries.append(subquery.split("WHERE EXISTS")[0])
             elif "EXISTS" in subquery:
                 subqueries.append(subquery.split("EXISTS")[0])
@@ -145,10 +147,12 @@ class CypherQueryMutatorSequential:
             this_level_query = first_part+last_part
         else:
             this_level_query = first_part
-        if "WHERE EXISTS" in this_level_query:
+        if "AND EXISTS" in this_level_query:
+            this_level_query= " ".join(this_level_query.split("AND EXISTS"))
+        elif "WHERE EXISTS" in this_level_query:
             this_level_query= " ".join(this_level_query.split("WHERE EXISTS"))
         elif "EXISTS" in subquery:
-            this_level_query= " ".join(this_level_query.split("WHERE"))
+            this_level_query= " ".join(this_level_query.split("EXISTS"))
 
 
         return this_level_query,subquery
