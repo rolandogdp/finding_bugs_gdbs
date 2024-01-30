@@ -378,26 +378,38 @@ class RandomCypherGenerator_subqueries_with_graph():
             ### New code based on the graph
             # number_of_test = randint(0,4)
             id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
-            # print("====ICI"*100)
-            # print(id_to_test)
-            # print(len(self.symbolsids))
-            if id_to_test != "":
-                id_int  = int(id_to_test[2:]) #id1 -> 1
-
-                predicate_placeholder = "( {id}.{property} {operator} {value} )"
-
-                property_to_test = "id"
-                value = id_int
-                # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
-
-                # node = self.graph_full.vertex(id_int)
-                # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
+            print("====TEST"*100)
+            print(self.symbolsids)
+            print(len(self.symbolsids))
+            conditions = []
+            for symbol in  self.symbolsids:
                 
-                # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
-                predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
-                # print("COUCOU: ",predicate)
-            else:predicate = "True"
+                id_to_test= symbol
+                if id_to_test != "":
+                    id_int  = int(id_to_test[2:]) #id1 -> 1
+
+                    predicate_placeholder = "( {id}.{property} {operator} {value} )"
+
+                    property_to_test = "id"
+                    value = id_int
+                    # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
+
+                    # node = self.graph_full.vertex(id_int)
+                    # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
+                    
+                    # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
+                    predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
+                    # print("COUCOU: ",predicate)
+                   
+
+                else:
+                    predicate = "True"
+                conditions.append(predicate)
+                print("FOR LOOP CONDITIONS: ",conditions)
+        predicate = " AND ".join(conditions) if len(conditions)>0 else "True"
+        print("CONDITIONS: ",conditions)
         condition = predicate
+        print("CONDITION: WHERE",condition)
         
         test_possibilities = []
         self.number_nested_predicates = randint(0,4)
@@ -692,25 +704,35 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
             ### New code based on the graph
             # number_of_test = randint(0,4)
             id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
-            # print("====ICI"*100)
-            # print(id_to_test)
-            # print(len(self.symbolsids))
-            if id_to_test != "":
-                id_int  = int(id_to_test[2:]) #id1 -> 1
-
-                predicate_placeholder = "( {id}.{property} {operator} {value} )"
-
-                property_to_test = "id"
-                value = id_int
-                # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
-
-                # node = self.graph_full.vertex(id_int)
-                # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
+            print("====ICI"*100)
+            print(self.symbolsids)
+            print(len(self.symbolsids))
+            conditions = []
+            for symbol in  self.symbolsids:
                 
-                # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
-                predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
-                # print("COUCOU: ",predicate)
-            else:predicate = "True"
+                id_to_test= symbol
+                if id_to_test != "":
+                    id_int  = int(id_to_test[2:]) #id1 -> 1
+
+                    predicate_placeholder = "( {id}.{property} {operator} {value} )"
+
+                    property_to_test = "id"
+                    value = id_int
+                    # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
+
+                    # node = self.graph_full.vertex(id_int)
+                    # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
+                    
+                    # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
+                    predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
+                    # print("COUCOU: ",predicate)
+                   
+
+                else:
+                    predicate = "True"
+                conditions.append(predicate)
+                print("FOR LOOP CONDITIONS: ",conditions)
+        predicate = " AND ".join(conditions) if len(conditions)>0 else "True"
         condition = predicate
         
         self._predicate = pattern.format(condition)
