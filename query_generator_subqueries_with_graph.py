@@ -108,7 +108,7 @@ class RandomCypherGenerator_subqueries_with_graph():
     # _match indicates the query is a graph-matching query rather than add/update/delete queries
     # cypher: `match` or `optional match` clause
     def match_generator(self):
-        match_candidates = ["MATCH", "OPTIONAL MATCH"]
+        match_candidates = ["MATCH"]#, "OPTIONAL MATCH"]
         self._match = choice(match_candidates)
 
     def random_node_multi_labels(self):
@@ -227,8 +227,8 @@ class RandomCypherGenerator_subqueries_with_graph():
 
     def path_parser(self):
         self.nodes_num = self._path.count('-')/2 + 1
-        symbol_list = re.findall("[(,\[][a-z]{{{sym_len}}}".format(sym_len=self.random_symbol_len), self._path)
-        symbol_list_with_labels = re.findall("[(,\[][a-z]{{{sym_len}}}[:]?[\w]+".format(sym_len=self.random_symbol_len), self._path)
+        symbol_list = re.findall(r"[(,\[][a-z]{{{sym_len}}}".format(sym_len=self.random_symbol_len), self._path)
+        symbol_list_with_labels = re.findall(r"[(,\[][a-z]{{{sym_len}}}[:]?[\w]+".format(sym_len=self.random_symbol_len), self._path)
         for each_symbol in symbol_list:
             symbol_name = each_symbol[1:]
             self.symbols.append(symbol_name)
@@ -247,7 +247,7 @@ class RandomCypherGenerator_subqueries_with_graph():
             self.name_label_dict.update({symbol_name: symbol_label})
         # to record the path, for incrementally generation
         # record node labels only, save as vector.
-        all_nodes = re.findall("\([A-Za-z0-9:]*\)", self._path)
+        all_nodes = re.findall(r"\([A-Za-z0-9:]*\)", self._path)
         path_vector = []
         for each_node in all_nodes:
             if ':' not in each_node:
@@ -378,9 +378,9 @@ class RandomCypherGenerator_subqueries_with_graph():
             ### New code based on the graph
             # number_of_test = randint(0,4)
             id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
-            print("====TEST"*100)
-            print(self.symbolsids)
-            print(len(self.symbolsids))
+            # print("====TEST"*100)
+            # print(self.symbolsids)
+            # print(len(self.symbolsids))
             conditions = []
             for symbol in  self.symbolsids:
                 
@@ -405,11 +405,9 @@ class RandomCypherGenerator_subqueries_with_graph():
                 else:
                     predicate = "True"
                 conditions.append(predicate)
-                print("FOR LOOP CONDITIONS: ",conditions)
         predicate = " AND ".join(conditions) if len(conditions)>0 else "True"
-        print("CONDITIONS: ",conditions)
         condition = predicate
-        print("CONDITION: WHERE",condition)
+        # print("CONDITION: WHERE",condition)
         
         test_possibilities = []
         self.number_nested_predicates = randint(0,4)
@@ -458,7 +456,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         return_keywords = ["RETURN", "RETURN DISTINCT"]
         # TODO: to support count(DISTINCT ), max(), min()
         test_returns = ["count({})"]
-        if len(self.symbolsids)>0 and self.random_choice(0.5):
+        if len(self.symbolsids)>0:# and self.random_choice(0.5):
             return_staff = choice(self.symbolsids)
         else:
             return_staff = choice(test_returns).format(choice(self.symbols)) if len(self.symbols)>0 else "count(1)"
@@ -672,41 +670,6 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
     
     def generate_condition(self):
             id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
-            # print("====ICI"*100)
-            # print(id_to_test)
-            # print(len(self.symbolsids))
-            predicate =""
-            if id_to_test != "":
-                id_int  = int(id_to_test[2:]) #id1 -> 1
-
-                predicate_placeholder = "({id}.{property}{operator}{value})"
-
-                property_to_test = "id"
-                value = id_int
-                # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
-
-                # node = self.graph_full.vertex(id_int)
-                # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
-                
-                # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
-                predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
-                # print("COUCOU: ",predicate)
-            return predicate
-
-       # TODO: add more predicate
-    def predicate_generator(self):
-        
-        pattern = "WHERE {}"
-        
-        # should_test_propertyQ = self.random_choice(0.5) # For later, when 
-        should_test_propertyQ = True
-        if should_test_propertyQ:
-            ### New code based on the graph
-            # number_of_test = randint(0,4)
-            id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
-            print("====ICI"*100)
-            print(self.symbolsids)
-            print(len(self.symbolsids))
             conditions = []
             for symbol in  self.symbolsids:
                 
@@ -731,7 +694,61 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
                 else:
                     predicate = "True"
                 conditions.append(predicate)
-                print("FOR LOOP CONDITIONS: ",conditions)
+                # print("FOR LOOP CONDITIONS: ",conditions)
+            predicate = " AND ".join(conditions) if len(conditions)>0 else "True"
+    
+            # predicate =""
+            # if id_to_test != "":
+            #     id_int  = int(id_to_test[2:]) #id1 -> 1
+
+            #     predicate_placeholder = "({id}.{property}{operator}{value})"
+
+            #     property_to_test = "id"
+            #     value = id_int
+            #     predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
+            #     # print("COUCOU: ",predicate)
+    
+            return predicate
+
+       # TODO: add more predicate
+    def predicate_generator(self):
+        
+        pattern = "WHERE {}"
+        
+        # should_test_propertyQ = self.random_choice(0.5) # For later, when 
+        should_test_propertyQ = True
+        if should_test_propertyQ:
+            ### New code based on the graph
+            # number_of_test = randint(0,4)
+            id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
+            # print("====ICI"*100)
+            # print(self.symbolsids)
+            # print(len(self.symbolsids))
+            conditions = []
+            for symbol in  self.symbolsids:
+                
+                id_to_test= symbol
+                if id_to_test != "":
+                    id_int  = int(id_to_test[2:]) #id1 -> 1
+
+                    predicate_placeholder = "( {id}.{property} {operator} {value} )"
+
+                    property_to_test = "id"
+                    value = id_int
+                    # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
+
+                    # node = self.graph_full.vertex(id_int)
+                    # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
+                    
+                    # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
+                    predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
+                    # print("COUCOU: ",predicate)
+                   
+
+                else:
+                    predicate = "True"
+                conditions.append(predicate)
+                # print("FOR LOOP CONDITIONS: ",conditions)
         predicate = " AND ".join(conditions) if len(conditions)>0 else "True"
         condition = predicate
         

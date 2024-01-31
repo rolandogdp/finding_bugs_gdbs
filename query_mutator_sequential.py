@@ -22,9 +22,10 @@ class CypherQueryMutatorSequential:
         self.connectivity_matrix = connectivity_matrix
         self.graph_full = graph_full
         
+        
 
     def cypher_query_parser(self, query):
-        _match = "OPTIONAL MATCH" if "OPTIONAL" in query else "MATCH"
+        _match = "MATCH" if "OPTIONAL" in query else "MATCH" #"OPTIONAL MATCH" if "OPTIONAL" in query else "MATCH"
         _path = query.split("MATCH ")[1].split(' ')[0].strip(' ')
         if "WHERE " not in query:
             _predicate = ""
@@ -85,6 +86,7 @@ class CypherQueryMutatorSequential:
         self.restricted_queries_eval = []
 
         self.return_clause = ""
+        self.views_ids = []
 
     def strip_spaces(self, query):
         return re.sub(" +", " ", query)
@@ -167,7 +169,7 @@ class CypherQueryMutatorSequential:
             print(tmp)
 
         if not "MATCH" in subquery: # If no match assume optional match
-            query = f"OPTIONAL MATCH {subquery}"
+            query = f"MATCH {subquery}" #f"OPTIONAL MATCH {subquery}"# Avoiding optional match for now, maybe causing inssues with the view creations.
         if not "RETURN" in subquery:
             query = f"{query} RETURN *"
 
@@ -190,12 +192,14 @@ class CypherQueryMutatorSequential:
         
         
         query = re.sub(r':\w+\)', ')', query) # Remove labels from nodes for the creation. Otherwise gives error.
-        query=query.replace("()-[]->(){0,1000}","")
+        query=query.replace("() (()-[]->()){0,1000} ","")
         # print("query:",query)
-        if "[r:contains]->" in query:
-            query = query.split("[r:contains]->")[1]
+        if "[:contains]->" in query:
+            query = query.split("[:contains]->")[1]
         query = query.lstrip()
-        create_query = f"CREATE ({new_view_name}:{new_view_name})-[r:contains]->{query}"
+        # print("query:",query)
+        query = query.split("WHERE")[0]
+        create_query = f"CREATE ({new_view_name}:{new_view_name})-[:contains]->{query}"
         final = f"{subquery}\n{create_query}"
         if not "MATCH" in final:
             final = f"MATCH {final}"
@@ -206,10 +210,10 @@ class CypherQueryMutatorSequential:
     def update_match(self,subquery,view_name="view"):
         if "MATCH " in subquery:
             tmp = subquery.split("MATCH ")
-            tmp[1] = f"({view_name})-[r:contains]->()-[]->(){{0,1000}}{tmp[1]}"
+            tmp[1] = f"({view_name})-[:contains]->() (()-[]->()){{0,1000}} {tmp[1]}"
             tmp= "MATCH ".join(tmp)
         else :
-            tmp = f"MATCH ({view_name})-[r:contains]->()-[]->(){{0,1000}}{subquery}"
+            tmp = f"MATCH ({view_name})-[:contains]->() (()-[]->()){{0,1000}} {subquery}"
         
         return tmp
     def get_return_clause(self,query):
@@ -217,6 +221,7 @@ class CypherQueryMutatorSequential:
         return return_clause
 
     def get_all_transactions(self,base_query):
+        self.init_for_each_base_query(base_query)
         subs = self.get_all_subqueries(base_query)
         transactions = []
         view_text ="view"
@@ -227,4 +232,14 @@ class CypherQueryMutatorSequential:
             curr_view = view_text+str(view_id)
             print(self.generate_simple_create_view(sub,new_view_name=curr_view),"\n")
             view_id+=1
+            self.views_ids.append(curr_view)
         return 
+    
+    def delete_view(self,view_name):
+        return f"MATCH (view:{view_name}) DETACH DELETE view"
+    
+    def get_all_transactions_delete(self):
+        transactions = []
+        for view in self.views_ids:
+            transactions.append(self.delete_view(view))
+        return transactions
