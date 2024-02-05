@@ -23,7 +23,7 @@ class CypherQueryMutatorSequential:
         self.graph_full = graph_full
         
         
-
+        
     def cypher_query_parser(self, query):
         _match = "MATCH" if "OPTIONAL" in query else "MATCH" #"OPTIONAL MATCH" if "OPTIONAL" in query else "MATCH"
         _path = query.split("MATCH ")[1].split(' ')[0].strip(' ')
@@ -71,22 +71,13 @@ class CypherQueryMutatorSequential:
         self.mutated_node_symbols = []
         self.mutated_edge_symbols = []
 
-        # we split rules into three classes: Non-GQT, Property-GQT, and Structure-GQT
-        self.Non_GQT = [1,0,0]
-        self.Property_GQT = [0,1,0]
-        self.Structure_GQT = [0,0,1]
-        self.equivalent_queries = []
-        self.restricted_queries = []
 
-        # eval list (a list of triple) records the rule using the tuple: [x,y,z]
-        # x=1 indicates it includes Non-GQT transformation
-        # y=1 indicates it includes Property-GQT transformation
-        # z=1 indicates it includes Structure-GQT transformation
-        self.equivalent_queries_eval = []
-        self.restricted_queries_eval = []
 
         self.return_clause = ""
         self.views_ids = []
+        self.transactions_create = []
+        self.transactions_delete = []
+        self.transaction_match = ''
 
     def strip_spaces(self, query):
         return re.sub(" +", " ", query)
@@ -200,12 +191,12 @@ class CypherQueryMutatorSequential:
         # print("query:",query)
         query = query.split("WHERE")[0]
         create_query = f"CREATE ({new_view_name}:{new_view_name})-[:contains]->{query}"
-        final = f"{subquery}\n{create_query}"
+        final = f"{subquery} \n {create_query}"
         if not "MATCH" in final:
             final = f"MATCH {final}"
 
 
-        return final
+        return final.rstrip().lstrip()
 
     def update_match(self,subquery,view_name="view"):
         if "MATCH " in subquery:
@@ -216,12 +207,13 @@ class CypherQueryMutatorSequential:
             tmp = f"MATCH ({view_name})-[:contains]->() (()-[]->()){{0,1000}} {subquery}"
         
         return tmp
+
     def get_return_clause(self,query):
         return_clause = query.split("RETURN ")[1].split(" ")[0]
         return return_clause
 
-    def get_all_transactions(self,base_query):
-        self.init_for_each_base_query(base_query)
+    def get_all_transactions_create(self,base_query):
+        #self.init_for_each_base_query(base_query)
         subs = self.get_all_subqueries(base_query)
         transactions = []
         view_text ="view"
@@ -230,10 +222,12 @@ class CypherQueryMutatorSequential:
             if view_id>0:
                 sub = self.update_match(sub,curr_view)
             curr_view = view_text+str(view_id)
-            print(self.generate_simple_create_view(sub,new_view_name=curr_view),"\n")
+            curr_create = self.generate_simple_create_view(sub,new_view_name=curr_view)
+            transactions.append(curr_create)
             view_id+=1
             self.views_ids.append(curr_view)
-        return 
+        self.transactions_create = transactions
+        return transactions
     
     def delete_view(self,view_name):
         return f"MATCH (view:{view_name}) DETACH DELETE view"
@@ -242,4 +236,21 @@ class CypherQueryMutatorSequential:
         transactions = []
         for view in self.views_ids:
             transactions.append(self.delete_view(view))
+        self.transactions_delete = transactions
         return transactions
+    
+    def get_match_transactions(self,base_query):
+        #TODO: How to actually get the wanted match transaction?
+        return ''
+    
+    def generate_equivalent_queries(self, base_query):
+        '''This function generates equivalent queries for a given base query. This is the expected
+        main function to be called from outside the class. It returns a list of equivalent queries
+        sequentialised by the order of the subqueries in the base query.
+        '''
+        self.init_for_each_base_query(base_query)
+        transactions_create = self.get_all_transactions_create(base_query)
+        transaction_match = self.get_match_transactions(base_query)
+        transactions_delete = self.get_all_transactions_delete()
+        
+        return transactions_create,transaction_match,transactions_delete
