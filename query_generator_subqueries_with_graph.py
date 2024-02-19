@@ -57,6 +57,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         self.connectivity_matrix = connectivity_matrix
         self.property_types_dict = property_types_dict
         self.graph_full = graph_full
+        self.subquery_max_branching = 4
         # We create a view with only vertices with at least one edge.
         self.graph_full_view = gt.GraphView(self.graph_full, vfilt=lambda v: v.out_degree() > 0)
         print(f"INIT:{node_labels}, edge_labels{edge_labels},connectivity_matrix{connectivity_matrix},property_types_dict{property_types_dict},")
@@ -366,85 +367,71 @@ class RandomCypherGenerator_subqueries_with_graph():
     
 
 
+    def predicate_generator_property_test(self,id_to_test=None):
+        if id_to_test == None:
+            id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
+        # print("====TEST"*100)
+        # print(self.symbolsids)
+        # print(len(self.symbolsids))
+        conditions = []
+        
+            
+        # id_to_test= symbol
+        if id_to_test != "":
+            id_int  = int(id_to_test[2:]) #id1 -> 1
 
+            predicate_placeholder = "( {id}.{property} {operator} {value} )"
+
+            property_to_test = "id"
+            value = id_int
+            # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
+
+            # node = self.graph_full.vertex(id_int)
+            # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
+            
+            # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
+            predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
+            
+        else: predicate = "True"
+        return predicate
+        
     # TODO: add more predicate
     def predicate_generator(self):
         
         pattern = "WHERE {}"
         
+        ## Properties tests
         # should_test_propertyQ = self.random_choice(0.5) # For later, when 
-        should_test_propertyQ = True
-        if should_test_propertyQ:
-            ### New code based on the graph
-            # number_of_test = randint(0,4)
-            id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
-            # print("====TEST"*100)
-            # print(self.symbolsids)
-            # print(len(self.symbolsids))
-            conditions = []
-            for symbol in  self.symbolsids:
+    
+        ### New code based on the graph
+        # number_of_test = randint(0,4)
+        id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
+
+        conditions = []
+        for symbol in  self.symbolsids:
+            predicate_test = self.predicate_generator_property_test(id_to_test=symbol)
+            conditions.append(predicate_test)
                 
-                id_to_test= symbol
-                if id_to_test != "":
-                    id_int  = int(id_to_test[2:]) #id1 -> 1
-
-                    predicate_placeholder = "( {id}.{property} {operator} {value} )"
-
-                    property_to_test = "id"
-                    value = id_int
-                    # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
-
-                    # node = self.graph_full.vertex(id_int)
-                    # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
-                    
-                    # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
-                    predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
-                    # print("COUCOU: ",predicate)
-                   
-
-                else:
-                    predicate = "True"
-                conditions.append(predicate)
         predicate = " AND ".join(conditions) if len(conditions)>0 else "True"
         condition = predicate
-        # print("CONDITION: WHERE",condition)
-        
-        test_possibilities = []
+
+        ## Subqueries        
+        subqueries = []
         self.number_nested_predicates = randint(0,4)
         
         if self.number_nested_predicates > 0:
             pattern = "WHERE {conditions} AND EXISTS {subquery}"
-            # print("DOING NESTED PREDICATES")
-            # print("-"*200)
             nested_generator = RandomCypherGenerator_subqueries_nested(node_labels=self.node_labels,edge_labels=self.edge_labels,node_properties=self.node_properties,
                                                                        connectivity_matrix=self.connectivity_matrix, property_types_dict=self.property_types_dict, recursion_level=self.number_nested_predicates,graph_full=self.graph_full,graph_full_view=self.graph_full_view)
             
-            predicate = nested_generator.predicate_generator_recursiv( iterations_left=self.number_nested_predicates)
-            self._predicate = pattern.format(conditions=condition,subquery=predicate)
+            for _ in range(randint(1,self.subquery_max_branching)):
+            
+                predicate_subqueries = nested_generator.predicate_generator_recursiv( iterations_left=self.number_nested_predicates)
+                subqueries.append(predicate_subqueries)
+            subquery = " AND EXISTS".join(subqueries)
+            self._predicate = pattern.format(conditions=condition,subquery=subquery)
             return
 
-        
-        # should_test_propertyQ = self.random_choice(0.5) # For later, when 
-        # should_test_propertyQ = True
-        # if should_test_propertyQ:
-
-            # ### OLD CODE
-            # # First, we need to get a property to test (choose left side of predicate)
-            # # print("SYMBOLS:",self.symbols)
-            # item_to_test = choice(self.symbols) if len(self.symbols)>0 else ""
-            # item_to_test_label = self.name_label_dict[item_to_test] if item_to_test!="" and item_to_test in  self.name_label_dict else ""
-
-            # property_to_test = choice(self.node_properties[item_to_test_label]) if item_to_test_label!="" else ""
-            # self.property_to_test = property_to_test
-            # property_type = self.property_types_dict[property_to_test] if property_to_test!="" else None
-
-            # # Second, we need to get an operator based on the property type
-            # # print(f"ITEM TO TEST:{item_to_test}")
-            # operator, right_type = self.get_operator(property_type=property_type,left_side=item_to_test) if property_type!=None else ("",None)
-
-            # # Third, we need to get a value to test (choose right side of predicate)
-
-            # predicate = "{}".format(operator) if len(operator)>0 else "True"
             
         else:
             predicate = "{} IS NOT NULL AND True".format(choice(self.node_symbols)) if len(self.node_symbols)>0 else "True"
@@ -667,50 +654,28 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
         self.graph_full = graph_full
         # We create a view with only vertices with at least one edge.
         self.graph_full_view = graph_full_view
+        self.subquery_max_branching = 4
     
     def generate_condition(self):
-            id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
-            conditions = []
-            for symbol in  self.symbolsids:
+        
+        ## Properties tests
+        # should_test_propertyQ = self.random_choice(0.5) # For later, when 
+    
+        ### New code based on the graph
+        # number_of_test = randint(0,4)
+        id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
+
+        conditions = []
+        for symbol in  self.symbolsids:
+            predicate_test = self.predicate_generator_property_test(id_to_test=symbol)
+            conditions.append(predicate_test)
                 
-                id_to_test= symbol
-                if id_to_test != "":
-                    id_int  = int(id_to_test[2:]) #id1 -> 1
-
-                    predicate_placeholder = "( {id}.{property} {operator} {value} )"
-
-                    property_to_test = "id"
-                    value = id_int
-                    # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
-
-                    # node = self.graph_full.vertex(id_int)
-                    # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
-                    
-                    # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
-                    predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
-                    # print("COUCOU: ",predicate)
-                   
-
-                else:
-                    predicate = "True"
-                conditions.append(predicate)
-                # print("FOR LOOP CONDITIONS: ",conditions)
-            predicate = " AND ".join(conditions) if len(conditions)>0 else "True"
+        predicate = " AND ".join(conditions) if len(conditions)>0 else "True"
     
-            # predicate =""
-            # if id_to_test != "":
-            #     id_int  = int(id_to_test[2:]) #id1 -> 1
-
-            #     predicate_placeholder = "({id}.{property}{operator}{value})"
-
-            #     property_to_test = "id"
-            #     value = id_int
-            #     predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
-            #     # print("COUCOU: ",predicate)
-    
-            return predicate
+        return predicate
 
        # TODO: add more predicate
+
     def predicate_generator(self):
         
         pattern = "WHERE {}"
@@ -755,38 +720,7 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
         self._predicate = pattern.format(condition)
         return self._predicate
         
-
-    # Old version
-    # # TODO: add more predicate
-    # def predicate_generator(self):
-        
-    #     pattern = "WHERE {}"
-    #     test_possibilities = []
-
-    #     # should_test_propertyQ = self.random_choice(0.5) # For later, when 
-    #     should_test_propertyQ = True
-    #     if should_test_propertyQ:
-    #         # First, we need to get a property to test (choose left side of predicate)
-    #         # print("SYMBOLS:",self.symbols)
-    #         item_to_test = choice(self.symbols) if len(self.symbols)>0 else ""
-    #         item_to_test_label = self.name_label_dict[item_to_test] if item_to_test!="" and item_to_test in  self.name_label_dict else ""
-
-    #         property_to_test = choice(self.node_properties[item_to_test_label]) if item_to_test_label!="" else ""
-    #         self.property_to_test = property_to_test
-    #         property_type = self.property_types_dict[property_to_test] if property_to_test!="" else None
-
-    #         # Second, we need to get an operator based on the property type
-    #         # print(f"ITEM TO TEST:{item_to_test}")
-    #         operator, right_type = self.get_operator(property_type=property_type,left_side=item_to_test) if property_type!=None else ("",None)
-
-    #         # Third, we need to get a value to test (choose right side of predicate)
-
-    #         predicate = "{}".format(operator) if len(operator)>0 else "True"
-            
-    #     else:
-    #         predicate = "{} IS NOT NULL AND True".format(choice(self.node_symbols)) if len(self.node_symbols)>0 else "True"
-    #     self._predicate = pattern.format(predicate)
-               
+      
     def predicate_generator_recursiv(self, iterations_left:int):
         self.init_query()
         self.match_generator()
@@ -801,15 +735,15 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
         other = self._other
         # print("INSIDE:",match,path,predicate,ret,other,iterations_left)
         if iterations_left <= 0: 
-            sub_query = "{{ {_path} {_predicate} }}"
+            sub_query = "{{ MATCH {_path} {_predicate} {_return} }}"
             self.predicate_generator()
             predicate = self._predicate
 
             query = sub_query.format(
                 _match = match,
                 _path = path,
-                _predicate = predicate
-                # _return = ret,
+                _predicate = predicate,
+                _return = ret
                 # _other = other
             )
             
@@ -818,15 +752,20 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
             if condition != "":
                 condition_text = "{} AND".format(condition)
             else: condition_text = ""
-            sub_query = "{{ {_match} {_path} WHERE {_condition} EXISTS {_predicate} }}"
-            predicate = self.predicate_generator_recursiv(iterations_left-1)
+            sub_query = "{{ {_match} {_path} WHERE {_condition} EXISTS {_predicate} {_return} }}"
+            predicates = []
+            for _ in range(0,randint(1,self.subquery_max_branching)):
+                predicate = self.predicate_generator_recursiv(iterations_left-1)
+                predicates.append(predicate)
+            predicate = "AND EXISTS".join(predicates)
+            
         
             query = sub_query.format(
                 _match = match,
                 _path = path,
                 _predicate = predicate,
-                _condition = condition_text
-                # _return = ret,
+                _condition = condition_text,
+                _return = ret
                 # _other = other
             )
         # print("QUERY INSIDE NEsted =",query)
