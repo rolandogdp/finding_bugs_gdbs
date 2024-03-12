@@ -275,7 +275,7 @@ class RandomCypherGenerator_subqueries_with_graph():
             self._last_vector_length = 0
             self._path_vectors.clear()
 
-    def get_operator(self, property_type,left_side='') -> (str, [str,None]):
+    def get_operator(self, property_type,left_side='') -> tuple[str, list[str, None]]:
         print(f" property_type: {property_type},left side:{left_side}")
         # ONLY FOR NEO4J AT THE MOMENT
         # TODO: add more operators?
@@ -415,19 +415,34 @@ class RandomCypherGenerator_subqueries_with_graph():
         predicate = " AND ".join(conditions) if len(conditions)>0 else "True"
         condition = predicate
 
-        ## Subqueries        
+        ## Subqueries   
+             
         subqueries = []
-        self.number_nested_predicates = randint(0,4)
-        
+        self.number_nested_predicates = 2 #randint(0,4) # TODO
+
+        # EXISTs subqueries
         if self.number_nested_predicates > 0:
             pattern = "WHERE {conditions} AND EXISTS {subquery}"
-            nested_generator = RandomCypherGenerator_subqueries_nested(node_labels=self.node_labels,edge_labels=self.edge_labels,node_properties=self.node_properties,
-                                                                       connectivity_matrix=self.connectivity_matrix, property_types_dict=self.property_types_dict, recursion_level=self.number_nested_predicates,graph_full=self.graph_full,graph_full_view=self.graph_full_view)
+
+            # choose randomly between nested subqueries, UNION subqueries, WITH subqueries:
+            choosed_subquery_type = choice(["nested","union"])#,"with"])
+            choosed_subquery_type = "nested"
+            if choosed_subquery_type == "nested":
             
-            for _ in range(randint(1,self.subquery_max_branching)):
+                nested_generator = RandomCypherGenerator_subqueries_nested(node_labels=self.node_labels,edge_labels=self.edge_labels,node_properties=self.node_properties,
+                                                                        connectivity_matrix=self.connectivity_matrix, property_types_dict=self.property_types_dict,
+                                                                            recursion_level=self.number_nested_predicates,graph_full=self.graph_full,graph_full_view=self.graph_full_view
+                                                                            )
+                for _ in range(1):#randint(1,self.subquery_max_branching)):
+                
+                    predicate_subqueries =  nested_generator.predicate_generator_recursiv( iterations_left=self.number_nested_predicates) 
+                    subqueries.append(predicate_subqueries)
+            elif choosed_subquery_type == "union":
+                # Generate subqueries with union
+                for _ in range(2):#randint(1,self.subquery_max_branching)):
+                    subquery_for_union = self.union_generator()
+                    subqueries.append(subquery_for_union)
             
-                predicate_subqueries = nested_generator.predicate_generator_recursiv( iterations_left=self.number_nested_predicates)
-                subqueries.append(predicate_subqueries)
             subquery = " AND EXISTS".join(subqueries)
             self._predicate = pattern.format(conditions=condition,subquery=subquery)
             return
@@ -533,7 +548,25 @@ class RandomCypherGenerator_subqueries_with_graph():
         # print("\n\n\n\n HERE PATH:",path)
         # self.path_parser() # TODO: Unsure..?
 
+    def union_generator(self):
+        #Generate subqueries with union
+        subqueries = []
+        nested_generator = RandomCypherGenerator_subqueries_nested(node_labels=self.node_labels,edge_labels=self.edge_labels,node_properties=self.node_properties,
+                                                                       connectivity_matrix=self.connectivity_matrix, property_types_dict=self.property_types_dict,
+                                                                         recursion_level=self.number_nested_predicates,graph_full=self.graph_full,graph_full_view=self.graph_full_view)
+            
+        for _ in range(randint(1,self.number_nested_predicates)): # Number of union
+            
+            subquery_for_union = nested_generator.predicate_generator_recursiv(iterations_left=self.number_nested_predicates)
+            subqueries.append(subquery_for_union)
+            print("SUBQUERY UNION: ", subquery_for_union)
+            # input("Waiting")
+        
 
+        union_subquery = " UNION".join(subqueries)
+        
+        return union_subquery
+    
     def random_query_generator(self):
         self.init_query()
         self.match_generator()
@@ -541,6 +574,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         self.predicate_generator()
         self.return_generator()
         self.other_generator()
+        
         query = self.cypher_query_pattern.format(
             _match = self._match,
             _path = self._path,
@@ -722,20 +756,22 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
         
       
     def predicate_generator_recursiv(self, iterations_left:int):
+        # print("ITERATIONS LEFT: ",iterations_left)
         self.init_query()
         self.match_generator()
         self.path_generator_graph()
         
-        self.return_generator()
+        #self.return_generator() #  Disabled return in subqueries for now
         self.other_generator()
         match = self._match
         path = self._path
         predicate = self._predicate
-        ret = self._return
+        # ret = self._return #  Disabled return in subqueries for now
+        ret = ""
         other = self._other
         # print("INSIDE:",match,path,predicate,ret,other,iterations_left)
         if iterations_left <= 0: 
-            sub_query = "{{ MATCH {_path} {_predicate} {_return} }}"
+            sub_query = "MATCH {_path} {_predicate} {_return}"
             self.predicate_generator()
             predicate = self._predicate
 
@@ -746,18 +782,24 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
                 _return = ret
                 # _other = other
             )
+
+            # print("QUERY INSIDE NEsted =",query)
             
         elif iterations_left > 0:
             condition = self.generate_condition()
             if condition != "":
                 condition_text = "{} AND".format(condition)
             else: condition_text = ""
-            sub_query = "{{ {_match} {_path} WHERE {_condition} EXISTS {_predicate} {_return} }}"
+            sub_query = "{{ {_match} {_path} WHERE {_condition} EXISTS  {_predicate}  {_return} }}"
             predicates = []
-            for _ in range(0,randint(1,self.subquery_max_branching)):
-                predicate = self.predicate_generator_recursiv(iterations_left-1)
+            for _ in range(0,randint(2,self.subquery_max_branching)):
+                predicate =  self.predicate_generator_recursiv(iterations_left-1)
+                if predicate[0] != "{":
+                    predicate = "{{ {} }}".format(predicate)
                 predicates.append(predicate)
-            predicate = "AND EXISTS".join(predicates)
+                # print("Iteration LEFT::",str(iterations_left)," PREDICATE added to the list: ",predicate)
+            predicate = " AND EXISTS ".join(predicates)
+            # print("Iteration LEFT:",str(iterations_left), "final PREDICATE: ",predicate)
             
         
             query = sub_query.format(
@@ -772,5 +814,5 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
         
         # query = re.sub(' +', ' ', query).strip(' ')
         # query = re.sub('[*]+', '*', query).strip(' ')
-
+        # print("Iteration LEFT:",str(iterations_left),"Returning query:",query)
         return query
