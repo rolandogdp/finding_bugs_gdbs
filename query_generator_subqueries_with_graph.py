@@ -425,7 +425,7 @@ class RandomCypherGenerator_subqueries_with_graph():
             pattern = "WHERE {conditions} AND EXISTS {subquery}"
 
             # choose randomly between nested subqueries, UNION subqueries, WITH subqueries:
-            choosed_subquery_type = choice(["nested","union"])#,"with"])
+            choosed_subquery_type = choice(["nested","union","with"])
             # choosed_subquery_type = "with"
             if choosed_subquery_type == "nested":
             
@@ -444,14 +444,14 @@ class RandomCypherGenerator_subqueries_with_graph():
                 for _ in range(randint(1,self.subquery_max_branching)):
                     subquery_for_union = self.union_generator()
                     subqueries.append(subquery_for_union)
-            # elif choosed_subquery_type == "with":
-            #     #Generate subqueries with with
-            #     for _ in range(randint(1,self.subquery_max_branching)):
-            #         subquery_for_with = self.with_generator()
-            #         if subquery_for_with[0] != "{":
-            #             subquery_for_with = "{{ {} }}".format(subquery_for_with)
+            elif choosed_subquery_type == "with":
+                #Generate subqueries with with
+                for _ in range(randint(1,self.subquery_max_branching)):
+                    subquery_for_with = self.with_generator()
+                    if subquery_for_with[0] != "{":
+                        subquery_for_with = "{{ {} }}".format(subquery_for_with)
 
-            #         subqueries.append(subquery_for_with)
+                    subqueries.append(subquery_for_with)
 
             
             subquery = " AND EXISTS ".join(subqueries)
@@ -593,7 +593,7 @@ class RandomCypherGenerator_subqueries_with_graph():
                                                                          recursion_level=self.number_nested_predicates,graph_full=self.graph_full,graph_full_view=self.graph_full_view)
         self.number_nested_predicates = randint(0,4)
         number_of_withs = randint(0,4)
-        with_subquery = "WITH {name} AS \"{variable}\" {subquery}"   
+        with_subquery = "WITH \"{variable}\" AS {name} {subquery}"   
          # Number of with
             
         subquery_for_with = nested_generator.predicate_generator_recursiv(iterations_left=self.number_nested_predicates)
