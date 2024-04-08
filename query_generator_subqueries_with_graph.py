@@ -531,7 +531,7 @@ class RandomCypherGenerator_subqueries_with_graph():
                 
                 elif choosed_subquery_type == "union":
                     print("COLLECT UNION")
-                    subquery_for_union = self.union_generator(union_keyword=" UNION ALL ",max_number_unions=2,max_number_nested_subqueries=1,needs_return=True)
+                    subquery_for_union = self.union_generator(union_keyword=" UNION ALL ",max_number_unions=2,max_number_nested_subqueries=1,needs_return=True,return_name=self.random_symbol())
                     subquery_for_union = subquery_for_union.lstrip("{").rstrip("}")
                     subquery = subquery_for_union
                     self._predicate = pattern.format(conditions=condition,subquery=subquery)
@@ -639,7 +639,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         # print("\n\n\n\n HERE PATH:",path)
         # self.path_parser() # TODO: Unsure..?
 
-    def union_generator(self,union_keyword=" UNION ",max_number_unions=4,max_number_nested_subqueries=2,needs_return=False):
+    def union_generator(self,union_keyword=" UNION ",max_number_unions=4,max_number_nested_subqueries=2,needs_return=False,return_name=""):
         #Generate subqueries with union
         subqueries = []
         nested_generator = RandomCypherGenerator_subqueries_nested(node_labels=self.node_labels,edge_labels=self.edge_labels,node_properties=self.node_properties,
@@ -649,7 +649,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         number_of_unions = randint(1,max_number_unions)   
         for _ in range(number_of_unions): # Number of union
             
-            subquery_for_union = nested_generator.predicate_generator_recursiv(iterations_left=self.number_nested_predicates,needs_return=needs_return)
+            subquery_for_union = nested_generator.predicate_generator_recursiv(iterations_left=self.number_nested_predicates,needs_return=needs_return,return_name=return_name)
             subqueries.append(subquery_for_union)
             print("SUBQUERY UNION: ", subquery_for_union)
             subquery_for_union = subquery_for_union.lstrip("{").rstrip("}")
@@ -878,7 +878,7 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
         return self._predicate
         
       
-    def predicate_generator_recursiv(self, iterations_left:int,needs_return=False):
+    def predicate_generator_recursiv(self, iterations_left:int,needs_return=False,return_name="") -> str:
         # print("ITERATIONS LEFT: ",iterations_left)
         self.init_query()
         self.match_generator()
@@ -886,9 +886,15 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
         if needs_return:
             self.return_generator() #  Disabled return in subqueries for now
             ret = self._return
+            # Adding name to return
+            if return_name != "":
+                ret = ret+ " AS {}".format(return_name)
         else:
             ret = ""
+            
 
+        
+        
         self.other_generator()
         match = self._match
         path = self._path
