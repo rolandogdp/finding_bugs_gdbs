@@ -424,7 +424,7 @@ class RandomCypherGenerator_subqueries_with_graph():
 
         #Choose type of subquery to generate
         type_of_subquery = choice(["EXISTS","COUNT","COLLECT","CALL"])
-        type_of_subquery ="CALL" #"COLLECT" #TODO: Remove this line
+        type_of_subquery ="COUNT" #"COLLECT" #TODO: Remove this line
         
         if self.number_nested_predicates > 0:
         # EXISTs subqueries
@@ -477,8 +477,7 @@ class RandomCypherGenerator_subqueries_with_graph():
                                                                                 )
                 
                 #Choose type of COUNT subquery to generate:
-                choosed_subquery_type = choice(["simple","union","with","COLLECT"])
-                choosed_subquery_type = "COLLECT" #TODO: Remove this line
+                choosed_subquery_type = choice(["simple","union","with"])
                 
                 if choosed_subquery_type == "simple":
                     subquery_for_count = nested_generator.predicate_generator_recursiv(iterations_left=self.number_nested_predicates)
