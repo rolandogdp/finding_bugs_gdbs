@@ -193,6 +193,7 @@ class RandomCypherGenerator_subqueries_with_graph():
 
     # it is important to generate diverse graph query patterns
     def path_generator(self):
+        # Currently not used
         nodes_num = self._node_num
         path = ""
         prev_node_label = ""
@@ -227,6 +228,7 @@ class RandomCypherGenerator_subqueries_with_graph():
 
 
     def path_parser(self):
+        # Not used at the moment
         self.nodes_num = self._path.count('-')/2 + 1
         symbol_list = re.findall(r"[(,\[][a-z]{{{sym_len}}}".format(sym_len=self.random_symbol_len), self._path)
         symbol_list_with_labels = re.findall(r"[(,\[][a-z]{{{sym_len}}}[:]?[\w]+".format(sym_len=self.random_symbol_len), self._path)
@@ -418,11 +420,11 @@ class RandomCypherGenerator_subqueries_with_graph():
         ## Subqueries   
              
         subqueries = []
-        self.number_nested_predicates = randint(0,4) # TODO: Add a parameter for this
+        self.number_nested_predicates = 1# randint(0,4) # TODO: Add a parameter for this
 
         #Choose type of subquery to generate
-        type_of_subquery = choice(["EXISTS","COUNT","COLLECT"])
-        type_of_subquery = "COLLECT" #TODO: Remove this line
+        type_of_subquery = choice(["EXISTS","COUNT","COLLECT","CALL"])
+        type_of_subquery ="CALL" #"COLLECT" #TODO: Remove this line
         
         if self.number_nested_predicates > 0:
         # EXISTs subqueries
@@ -537,10 +539,29 @@ class RandomCypherGenerator_subqueries_with_graph():
                     self._predicate = pattern.format(conditions=condition,subquery=subquery)
                     return
                     
+            elif type_of_subquery == "CALL":
+                # Will start with CALL used without unwind
+                pattern = "WHERE {conditions} CALL {{ {subquery} }} "
+                 
+                choosed_identifier = choice(self.symbolsids[:-1]) if len(self.symbolsids) > 1 else self.symbolsids[0]
+                choosed_identifier_int = choosed_identifier.split("id")[1]
+
+                # Find path of length 1 from the node
+                path = self.get_random_path_in_graph(choosed_identifier_int,1)[:2]
+                path_built = self.path_generator_graph(path) # This will be correctly formated (a)-[b]->(c)
+
+                # Choose which attribute from the choosen node to return
+                return_attribute = choice( list(self.graph_full.vertex_properties["properties"][path[1]].keys()))
+                subquery_pattern= "WITH {choosed_identifier} MATCH {path_built} RETURN {choosed_identifier}.{return_attribute} AS {return_attribute}"
+
+                subquery=  subquery_pattern.format(choosed_identifier=choosed_identifier,path_built=path_built,return_attribute=return_attribute)
                 
+                self._predicate = pattern.format(conditions=condition,subquery=subquery)
+                return
                 
         else:
-            predicate = "{} IS NOT NULL AND True".format(choice(self.node_symbols)) if len(self.node_symbols)>0 else "True"
+            predicate = "{} IS NOT NULL AND True".format(choice(self.symbolsids)) if len(self.symbolsids)>0 else "True"
+            print("="*10,"NO SUBQUERIES:", self.symbolsids)
         self._predicate = pattern.format(predicate)
 
     # note: we focus on testing `count`
@@ -571,9 +592,11 @@ class RandomCypherGenerator_subqueries_with_graph():
         )
 
 
-    def get_random_path_in_graph(self,starting_vertice=None):
+    def get_random_path_in_graph(self,starting_vertice=None,path_len = None):
         # TODO: optimize selection of starting vertice using additional graph metrics to guarantee finding a long enough path.
         found = False
+        if path_len is None:
+            path_len = self.min_node_num
         i=0
         choosen_path = []
         while not found:
@@ -583,7 +606,7 @@ class RandomCypherGenerator_subqueries_with_graph():
             visitor = VisitorExample(self.graph_full.vertex_properties["properties"],visitorResult,path_min=1,path_max=self.max_node_num)
             gt.dfs_search(self.graph_full, starting_vertice,visitor )
             for path in visitorResult.final_path[::-1]:
-                if len(path) >= self.min_node_num:
+                if len(path) >= path_len:
                     found = True
                     choosen_path = path
                     break
@@ -598,8 +621,11 @@ class RandomCypherGenerator_subqueries_with_graph():
         
         return choosen_path
         
-    def path_generator_graph(self):
-        graph_path = self.get_random_path_in_graph()
+    def path_generator_graph(self,path_param=None):
+        if path_param is None:
+            graph_path = self.get_random_path_in_graph()
+        else:
+            graph_path = path_param
         # print("PATH:",path)
         
         path = ""
@@ -624,18 +650,23 @@ class RandomCypherGenerator_subqueries_with_graph():
                 random_node_sym = ""
             
             random_edge_sym = ":{}".format(random_edge_label )
-            self.symbolsids.append(random_node_sym1)
+            if path_param is None:
+                self.symbolsids.append(random_node_sym1)
 
             path += path_units.format(node_sym=random_node_sym,edge_sym=random_edge_sym)
         
         random_node_sym1 = "id"+str(self.graph_full.vertex_properties["properties"][next_node]["id"]) #self.random_symbol() if self.random_choice(self.node_symbol_rate) else ""
         random_node_label1 = ":"+choice(self.graph_full.vertex_properties["labels"][next_node]) #if self.random_choice(self.multi_node_label_rate) else ""
         random_node_sym = "{}{}".format(random_node_sym1,random_node_label1 )
-        self.symbolsids.append(random_node_sym1)
+        if path_param is None:
+            self.symbolsids.append(random_node_sym1)
         
         path_final = "({node_sym})".format(node_sym=random_node_sym)
         path = path + path_final
-        self._path = path
+        if path_param is None:
+            self._path = path
+
+        return path
         # print("\n\n\n\n HERE PATH:",path)
         # self.path_parser() # TODO: Unsure..?
 
