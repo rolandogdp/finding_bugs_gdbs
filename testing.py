@@ -198,7 +198,13 @@ class Neo4jTesting(Testing):
                 # if possible, clear cache first
                 clear_query = "CALL db.clearQueryCaches();"
                 session.execute_write(self._new_execute, clear_query)
-                query_result, query_time = session.execute_write(self._new_execute, query)
+                if "TRANSACTIONS" in query: # This is a quick patch to handle call in transactions
+                    run_query= session.run(query)
+                    print(f"Ran query with run: {run_query}\n")
+                    query_result = run_query.values()
+                    query_time = 0 # ??
+                else:
+                    query_result, query_time = session.execute_write(self._new_execute, query)
             except Exception as e:
                 print('\nQuery:{}\nInfo:{}\n'.format(query, str(e)))
                 # self.except_log('\nQuery:{}\nInfo:{}\n'.format(query, str(e)))

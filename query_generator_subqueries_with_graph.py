@@ -89,6 +89,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         self.name_label_dict = {}
         self.name_label_types_dict = {}
         self.nodes_num = 0
+        self.created_in_transactions = False
 
         self.property_to_test = ""
         
@@ -381,24 +382,25 @@ class RandomCypherGenerator_subqueries_with_graph():
         # id_to_test= symbol
         if id_to_test != "":
             id_int  = int(id_to_test[2:]) #id1 -> 1
-
+            
             predicate_placeholder = "( {id}.{property} {operator} {value} )"
 
             property_to_test = "id"
             value = id_int
-            # Fancier way to do it but may cause problem with urls or other stuff... Let's keep it simple for now with only ids
-
+            #
+            # Have to keep this commented for now. This leads to an issue when generating the equality as for example dates will not match, some need the " others dont..
             # node = self.graph_full.vertex(id_int)
             # property_to_test = choice(list(self.graph_full.vertex_properties["properties"][node].keys()))
             
             # value = self.graph_full.vertex_properties["properties"][node][property_to_test]
+
             predicate = predicate_placeholder.format(id=id_to_test,property=property_to_test,operator="=",value=value)
             
         else: predicate = "True"
         return predicate
         
     # TODO: add more predicate
-    def predicate_generator(self):
+    def predicate_generator(self,type_of_subquery="random"):
         
         pattern = "WHERE {}"
         
@@ -423,8 +425,9 @@ class RandomCypherGenerator_subqueries_with_graph():
         self.number_nested_predicates = 1# randint(0,4) # TODO: Add a parameter for this
 
         #Choose type of subquery to generate
-        type_of_subquery = choice(["EXISTS","COUNT","COLLECT","CALL"])
-        type_of_subquery ="COUNT" #"COLLECT" #TODO: Remove this line
+        if type_of_subquery == "random":
+            type_of_subquery = choice(["EXISTS","COUNT","COLLECT","CALL"])
+        # type_of_subquery ="CALL" #"COLLECT" #TODO: Remove this line
         
         if self.number_nested_predicates > 0:
         # EXISTs subqueries
@@ -520,7 +523,7 @@ class RandomCypherGenerator_subqueries_with_graph():
                 
                 #Choose type of COUNT subquery to generate:
                 choosed_subquery_type = choice(["simple","union"])
-                choosed_subquery_type = "union"
+                # choosed_subquery_type = "union"
                 # choos ed_subquery_type = "with" #TODO: Remove this line
                 
                 if choosed_subquery_type == "simple":
@@ -720,8 +723,36 @@ class RandomCypherGenerator_subqueries_with_graph():
 
         return subquery
 
-    def random_query_generator(self):
+    def call_in_transaction_generator(self,query_type="create"):
+        # This query will create a subquery that will be called in a transaction to create a few entries
+        numbers = str(list(range(1,randint(2,5))))
+
+        if query_type == "create" and not self.created_in_transactions:
+            
+            query = "UNWIND {list} AS n  CALL {{ {subquery} }}  IN TRANSACTIONS"
+            subquery = "WITH n CREATE (:fakeperson {name: \"fakenewname\", age: n })"
+            final_query = query.format(list=numbers,subquery=subquery)
+            self.created_in_transactions = True
+            return final_query
+        else:
+            query = "MATCH (n:fakeperson)   CALL {{ {subquery} }}  IN TRANSACTIONS"
+            subquery = "WITH n Detach DELETE n"
+            final_query = query.format(list=numbers,subquery=subquery)
+            self.created_in_transactions = False
+            return final_query
+        
+ 
+        
+
+
+    def random_query_generator(self,force_calls_in_transaction=False):
         self.init_query()
+        #
+        should_call_in_transaction = self.random_choice(0.1)
+        if force_calls_in_transaction or should_call_in_transaction: # call in transaction requires a different query pattern than the others.
+            query= self.call_in_transaction_generator()
+            return query
+        
         self.match_generator()
         self.path_generator_graph()
         self.predicate_generator()
