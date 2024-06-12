@@ -373,9 +373,6 @@ class RandomCypherGenerator_subqueries_with_graph():
     def predicate_generator_property_test(self,id_to_test=None):
         if id_to_test == None:
             id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
-        # print("====TEST"*100)
-        # print(self.symbolsids)
-        # print(len(self.symbolsids))
         conditions = []
         
             
@@ -399,8 +396,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         else: predicate = "True"
         return predicate
         
-    # TODO: add more predicate
-    def predicate_generator(self,type_of_subquery="random"):
+    def predicate_generator(self,type_of_subquery="random",iterations_left=0):
         
         pattern = "WHERE {}"
         
@@ -422,21 +418,21 @@ class RandomCypherGenerator_subqueries_with_graph():
         ## Subqueries   
              
         subqueries = []
-        self.number_nested_predicates = 1# randint(0,4) # TODO: Add a parameter for this
-
+        self.number_nested_predicates =  randint(0,4) # TODO: Add a parameter for this
+        print(f"type of subquery received is: {type_of_subquery}")
         #Choose type of subquery to generate
         if type_of_subquery == "random":
             type_of_subquery = choice(["EXISTS","COUNT","COLLECT","CALL"])
         # type_of_subquery ="CALL" #"COLLECT" #TODO: Remove this line
         
-        if self.number_nested_predicates > 0:
+        if  iterations_left>0:
         # EXISTs subqueries
             if type_of_subquery == "EXISTS":
                 pattern = "WHERE {conditions} AND EXISTS {subquery}"
 
                 # choose randomly between nested subqueries, UNION subqueries, WITH subqueries:
                 choosed_subquery_type = choice(["nested","union","with"])
-                if choosed_subquery_type == "nested":
+                if choosed_subquery_type == "nested" and iterations_left > 0:
                 
                     nested_generator = RandomCypherGenerator_subqueries_nested(node_labels=self.node_labels,edge_labels=self.edge_labels,node_properties=self.node_properties,
                                                                             connectivity_matrix=self.connectivity_matrix, property_types_dict=self.property_types_dict,
@@ -444,7 +440,7 @@ class RandomCypherGenerator_subqueries_with_graph():
                                                                                 )
                     for _ in range(randint(1,self.subquery_max_branching)): # Number of nested subqueries
                         
-                        predicate_subqueries =  nested_generator.predicate_generator_recursiv( iterations_left=self.number_nested_predicates) 
+                        predicate_subqueries =  nested_generator.predicate_generator_recursiv( iterations_left=iterations_left-1) 
                         if predicate_subqueries[0] != "{":
                             predicate_subqueries = "{{ {} }}".format(predicate_subqueries)
                         subqueries.append(predicate_subqueries)
@@ -465,8 +461,8 @@ class RandomCypherGenerator_subqueries_with_graph():
                 
                 subquery = " AND EXISTS ".join(subqueries)
                 self._predicate = pattern.format(conditions=condition,subquery=subquery)
-
-                return
+                print("Choosen query type: ",type_of_subquery, "Subquery type: ",choosed_subquery_type)
+                return self._predicate 
             
             elif type_of_subquery == "COUNT":
                 #Generate subqueries with count
@@ -483,11 +479,12 @@ class RandomCypherGenerator_subqueries_with_graph():
                 choosed_subquery_type = choice(["simple","union","with"])
                 
                 if choosed_subquery_type == "simple":
-                    subquery_for_count = nested_generator.predicate_generator_recursiv(iterations_left=self.number_nested_predicates)
+                    subquery_for_count = nested_generator.predicate_generator_recursiv( iterations_left=iterations_left-1)
                     subquery_for_count = subquery_for_count.lstrip("{").rstrip("}")
                     subquery = subquery_for_count
                     self._predicate = pattern.format(conditions=condition,subquery=subquery)
-                    return
+                    print("Choosen query type: ",type_of_subquery, "Subquery type: ",choosed_subquery_type)
+                    return self._predicate 
                 
                 elif choosed_subquery_type == "union":
                     
@@ -495,7 +492,8 @@ class RandomCypherGenerator_subqueries_with_graph():
                     subquery_for_union = subquery_for_union.lstrip("{").rstrip("}")
                     subquery = subquery_for_union
                     self._predicate = pattern.format(conditions=condition,subquery=subquery)
-                    return
+                    print("Choosen query type: ",type_of_subquery, "Subquery type: ",choosed_subquery_type)
+                    return self._predicate
                     
                 elif choosed_subquery_type == "with":
                     
@@ -503,11 +501,12 @@ class RandomCypherGenerator_subqueries_with_graph():
 
                     subquery = subquery_for_with
                     self._predicate = pattern.format(conditions=condition,subquery=subquery)
-                    return
+                    print("Choosen query type: ",type_of_subquery, "Subquery type: ",choosed_subquery_type)
+                    return self._predicate
 
                 subquery = self.return_generator()
                 self._predicate = pattern.format(conditions=condition,subquery=subquery)
-                return 
+                return self._predicate 
 
             elif type_of_subquery == "COLLECT":
                 
@@ -531,7 +530,8 @@ class RandomCypherGenerator_subqueries_with_graph():
                     subquery_for_count = subquery_for_count.lstrip("{").rstrip("}")
                     subquery = subquery_for_count
                     self._predicate = pattern.format(conditions=condition,subquery=subquery)
-                    return
+                    print("Choosen query type: ",type_of_subquery, "Subquery type: ",choosed_subquery_type)
+                    return self._predicate
                 
                 elif choosed_subquery_type == "union":
                     print("COLLECT UNION")
@@ -539,7 +539,8 @@ class RandomCypherGenerator_subqueries_with_graph():
                     subquery_for_union = subquery_for_union.lstrip("{").rstrip("}")
                     subquery = subquery_for_union
                     self._predicate = pattern.format(conditions=condition,subquery=subquery)
-                    return
+                    print("Choosen query type: ",type_of_subquery, "Subquery type: ",choosed_subquery_type)
+                    return self._predicate
                     
             elif type_of_subquery == "CALL":
                 # Will start with CALL used without unwind
@@ -559,12 +560,15 @@ class RandomCypherGenerator_subqueries_with_graph():
                 subquery=  subquery_pattern.format(choosed_identifier=choosed_identifier,path_built=path_built,return_attribute=return_attribute)
                 
                 self._predicate = pattern.format(conditions=condition,subquery=subquery)
-                return
+
+                print("Choosen query type: ",type_of_subquery, " Not in transaction")
+                return self._predicate
                 
         else:
             predicate = "{} IS NOT NULL AND True".format(choice(self.symbolsids)) if len(self.symbolsids)>0 else "True"
-            print("="*10,"NO SUBQUERIES:", self.symbolsids)
+            print("="*10,"Choosen query type: NO SUBQUERIES:", self.symbolsids, " iterations left: ",iterations_left)
         self._predicate = pattern.format(predicate)
+        return self._predicate
 
     # note: we focus on testing `count`
     def return_generator(self):
@@ -672,7 +676,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         # print("\n\n\n\n HERE PATH:",path)
         # self.path_parser() # TODO: Unsure..?
 
-    def union_generator(self,union_keyword=" UNION ",max_number_unions=4,max_number_nested_subqueries=2,needs_return=False,return_name=""):
+    def union_generator(self,union_keyword=" UNION ",max_number_unions=4,max_number_nested_subqueries=2,needs_return=False,return_name="",iterations_left=0):
         #Generate subqueries with union
         subqueries = []
         nested_generator = RandomCypherGenerator_subqueries_nested(node_labels=self.node_labels,edge_labels=self.edge_labels,node_properties=self.node_properties,
@@ -682,7 +686,7 @@ class RandomCypherGenerator_subqueries_with_graph():
         number_of_unions = randint(1,max_number_unions)   
         for _ in range(number_of_unions): # Number of union
             
-            subquery_for_union = nested_generator.predicate_generator_recursiv(iterations_left=self.number_nested_predicates,needs_return=needs_return,return_name=return_name)
+            subquery_for_union = nested_generator.predicate_generator_recursiv(iterations_left=iterations_left,needs_return=needs_return,return_name=return_name)
             subqueries.append(subquery_for_union)
             print("SUBQUERY UNION: ", subquery_for_union)
             subquery_for_union = subquery_for_union.lstrip("{").rstrip("}")
@@ -726,6 +730,7 @@ class RandomCypherGenerator_subqueries_with_graph():
     def call_in_transaction_generator(self,query_type="create"):
         # This query will create a subquery that will be called in a transaction to create a few entries
         numbers = str(list(range(1,randint(2,5))))
+        print("Choosen query type: ","CALL", "  IN transaction")
 
         if query_type == "create" and not self.created_in_transactions:
             
@@ -745,17 +750,17 @@ class RandomCypherGenerator_subqueries_with_graph():
         
 
 
-    def random_query_generator(self,force_calls_in_transaction=False):
+    def random_query_generator(self,force_query_type="random",number_nested_subqueries=2):
         self.init_query()
         #
         should_call_in_transaction = self.random_choice(0.1)
-        if force_calls_in_transaction or should_call_in_transaction: # call in transaction requires a different query pattern than the others.
+        if force_query_type!="random" and (force_query_type=="CALLS IN TRANSACTION"  or should_call_in_transaction): # call in transaction requires a different query pattern than the others.
             query= self.call_in_transaction_generator()
             return query
         
         self.match_generator()
         self.path_generator_graph()
-        self.predicate_generator()
+        self.predicate_generator(type_of_subquery=force_query_type,iterations_left=number_nested_subqueries)
         self.return_generator()
         self.other_generator()
         
@@ -771,11 +776,6 @@ class RandomCypherGenerator_subqueries_with_graph():
         return query
 
 
-
-
-
-        
-        
 
 
 class VisitorResult():
@@ -894,19 +894,16 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
 
        # TODO: add more predicate
 
-    def predicate_generator(self):
+    def simple_predicate_generator(self):
         
         pattern = "WHERE {}"
         
         # should_test_propertyQ = self.random_choice(0.5) # For later, when 
         should_test_propertyQ = True
         if should_test_propertyQ:
-            ### New code based on the graph
-            # number_of_test = randint(0,4)
+
             id_to_test = choice(self.symbolsids) if len(self.symbolsids)>0 else ""
-            # print("====ICI"*100)
-            # print(self.symbolsids)
-            # print(len(self.symbolsids))
+
             conditions = []
             for symbol in  self.symbolsids:
                 
@@ -940,6 +937,69 @@ class RandomCypherGenerator_subqueries_nested(RandomCypherGenerator_subqueries_w
         
       
     def predicate_generator_recursiv(self, iterations_left:int,needs_return=False,return_name="") -> str:
+        # print("ITERATIONS LEFT: ",iterations_left)
+        self.init_query()
+        self.match_generator()
+        self.path_generator_graph()
+        if needs_return:
+            self.return_generator() 
+            ret = self._return
+            # Adding name to return
+            if return_name != "":
+                ret = ret+ " AS {}".format(return_name)
+        else:
+            ret = ""
+            
+
+        
+        
+        self.other_generator()
+        match = self._match
+        path = self._path
+        predicate = self._predicate
+
+        other = self._other
+        sub_query = "MATCH {_path} {_predicate} {_return}"
+        
+        if iterations_left <= 0: 
+            sub_query = "MATCH {_path} {_predicate} {_return}"
+            predicate = self.predicate_generator()
+            # predicate = self._predicate
+
+            query = sub_query.format(
+                _match = match,
+                _path = path,
+                _predicate = predicate,
+                _return = ret
+                # _other = other
+            )
+
+            # print("QUERY INSIDE NEsted =",query)
+
+        elif iterations_left > 0:
+            
+            predicate = self.predicate_generator(iterations_left=iterations_left-1)
+            
+        
+            query = sub_query.format(
+                _match = match,
+                _path = path,
+                _predicate = predicate,
+                _return = ret
+                # _other = other
+            )
+        # print("QUERY INSIDE NEsted =",query)
+        
+        # query = re.sub(' +', ' ', query).strip(' ')
+        # query = re.sub('[*]+', '*', query).strip(' ')
+        # print("Iteration LEFT:",str(iterations_left),"Returning query:",query)
+        return query
+    
+    
+    
+    
+    
+    def predicate_generator_recursiv_old(self, iterations_left:int,needs_return=False,return_name="") -> str:
         # print("ITERATIONS LEFT: ",iterations_left)
         self.init_query()
         self.match_generator()
